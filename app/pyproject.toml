@@ -1,0 +1,83 @@
+[tool.poetry]
+name = "modfs"
+version = "0.1.0"
+description = ""
+authors = ["J. Marcè i Igual <j.marce.i.igual@tue.nl>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+tqdm = "^4.65.0"
+pandas = "^2.2.0"
+plotly = "^5.18.0"
+kaleido = "0.2.1"
+cbor2 = "^5.4.2.post1"
+slurmer = "^1.0.7"
+networkx = "^2.8.1"
+matplotlib = "^3.5.2"
+commentjson = "^0.9.0"
+pydot = "^1.4.2"
+pygraphviz = "^1.10"
+pyarrow = "^14.0.0"
+seaborn = "^0.13.1"
+
+[tool.poetry.scripts]
+modfs = 'modfs:main'
+
+[tool.poetry.group.dev.dependencies]
+flakeheaven = "^3.2.1"
+pytest = "^7.0.1"
+ipython = "^8.0.1"
+black = "^22.1.0"
+Sphinx = "^4.4.0"
+sphinx-rtd-theme = "^1.0.0"
+jupyter = "^1.0.0"
+flake8 = "^4.0.1"
+flake8-bandit = "^2.1.2"
+flake8-builtins = "^1.5.3"
+flake8-bugbear = "^22.1.11"
+flake8-comprehensions = "^3.8.0"
+flake8-docstrings = "^1.6.0"
+flake8-eradicate = "^1.2.0"
+flake8-isort = "^4.1.1"
+flake8-mutable = "^1.2.0"
+flake8-pytest-style = "^1.6.0"
+flake8-deprecated = "^1.3"
+darglint = "^1.8.1"
+pep8-naming = "^0.12.1"
+pylint = "^2.12.2"
+snakeviz = "^2.1.1"
+Pympler = "^1.0.1"
+
+[tool.flakeheaven]
+exclude = ['README.md']
+max_line_length = 100
+format = 'colored'
+extended_default_ignore= [] # add this to fix issue in flakehell
+
+[tool.flakeheaven.plugins]
+flake8-bandit = ["+*", "-S322"]
+flake8-bugbear = ["+*"]
+flake8-builtins = ["+*"]
+flake8-comprehensions = ["+*"]
+flake8-docstrings = ["+*", "-D105"]
+flake8-eradicate = ["+*"]
+flake8-isort = ["+*"]
+flake8-mutable = ["+*"]
+flake8-pytest-style = ["+*"]
+flake8-deprecated = ["+*"]
+darglint = ["+*"]
+mccabe = ["+*"]
+pep8-naming = ["+*"]
+pycodestyle = ["+*", "-W503"]
+pyflakes = ["+*"]
+pylint = ["+*"]
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

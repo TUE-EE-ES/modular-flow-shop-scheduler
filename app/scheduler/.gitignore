@@ -1,0 +1,4 @@
+# Clangd creates and requries this files in the top directory
+.cache/
+.vscode/
+compile_commands.json

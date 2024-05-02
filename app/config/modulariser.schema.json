@@ -1,0 +1,82 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+        "pattern_modules": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/ModulePattern"
+            },
+            "default": []
+        }
+    },
+    "$defs": {
+        "TimeFuncSpec": {
+            "type": "object",
+            "required": [
+                "op1",
+                "op2",
+                "time"
+            ],
+            "properties": {
+                "op1": {
+                    "type": "integer"
+                },
+                "op2": {
+                    "type": "integer"
+                },
+                "time": {
+                    "type": "integer"
+                }
+            },
+            "description": "TimeFuncSpec(op1: 'int', op2: 'int', time: 'int')"
+        },
+        "ModulePattern": {
+            "type": "object",
+            "required": [
+                "modules"
+            ],
+            "properties": {
+                "modules": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "prefixItems": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "integer"
+                            }
+                        ]
+                    }
+                },
+                "default_setup_time": {
+                    "type": "integer",
+                    "default": 0
+                },
+                "default_deadline": {
+                    "type": "integer"
+                },
+                "setup_times": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/TimeFuncSpec"
+                    },
+                    "uniqueItems": true,
+                    "default": []
+                },
+                "deadlines": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/TimeFuncSpec"
+                    },
+                    "uniqueItems": true,
+                    "default": []
+                }
+            }
+        }
+    }
+}

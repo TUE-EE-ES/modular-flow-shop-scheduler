@@ -1,0 +1,16 @@
+__pycache__/
+.~lock*
+.xml
+.txt
+document/*.aux
+document/*.bbl
+document/*.blg
+document/*.log
+document/*.gz
+
+# Python virtual environment
+.venv/
+
+# Place all your data here
+data/ 
+data

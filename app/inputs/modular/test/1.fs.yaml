@@ -1,0 +1,94 @@
+description: "Test the sequence-dependent setup time specification"
+flow_shops:
+  "0":
+    machines:
+      - 0
+      - 1
+      - 2
+    jobs:
+      "0":
+        ops:
+          "0":
+            machine: 0
+            time_processing: 30
+          "1":
+            machine: 1
+            time_processing: 30
+            time_sequence_dependent:
+              1: 100
+          "2":
+            machine: 1
+            time_processing: 30
+            time_sequence_dependent:
+              1: 100
+          "3":
+            machine: 2
+            time_processing: 30
+        setup:
+          - op1: 0
+            op2: 1
+            time: 5
+          - op1: 1
+            op2: 2
+            time: 1000
+          - op1: 2
+            op2: 3
+            time: 5
+        deadlines:
+          - op1: 1
+            op2: 0
+            time: 35
+          - op1: 2
+            op2: 1
+            time: 1200
+          - op1: 3
+            op2: 2
+            time: 35
+      "1":
+        ops:
+          "0":
+            machine: 0
+            time_processing: 30
+          "1":
+            machine: 1
+            time_processing: 110
+            time_sequence_dependent:
+              0: 100
+          "2":
+            machine: 1
+            time_processing: 110
+            time_sequence_dependent:
+              0: 100
+          "3":
+            machine: 2
+            time_processing: 30
+        setup:
+          - op1: 0
+            op2: 1
+            time: 5
+          - op1: 1
+            op2: 2
+            time: 1000
+          - op1: 2
+            op2: 3
+            time: 5
+        deadlines:
+          - op1: 1
+            op2: 0
+            time: 35
+          - op1: 2
+            op2: 1
+            time: 1200
+          - op1: 3
+            op2: 2
+            time: 35
+      
+patterns:
+  - jobs:
+      - [1, 1]
+      - [0, 3]
+      - [1, 1]
+patterns_modules:
+  patterns:
+    - modules:
+        - [0, 2]

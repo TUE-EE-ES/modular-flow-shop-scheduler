@@ -1,0 +1,10 @@
+{
+    "yaml.schemas": {
+        "./config/flow-shop.schema.json": [
+            "*.fs.yaml"
+        ],
+        "./config/modulariser.schema.json": [
+            "*.mfs.yaml"
+        ]
+    }
+}

@@ -1,0 +1,14 @@
+modules:
+  0:
+    machineSequences:
+      0:
+        - [2, 0]
+        - [1, 0]
+  1:
+    machineSequences:
+  2:
+    machineSequences:
+      0:
+        - [2, 0]
+        - [1, 0]
+        

@@ -1,0 +1,58 @@
+before_script:
+    - wget -q -O doxygen.tar.gz https://www.doxygen.nl/files/doxygen-1.9.7.linux.bin.tar.gz && 
+        tar xf doxygen.tar.gz && make -C doxygen-*/ install
+
+
+test: # build continuous integration for each commit on the master branch
+    stage: test
+    tags:
+        - samfms2
+    script:
+        - CC=gcc-13 CXX=g++-13 cmake -S scheduler -B build -G Ninja
+            -DCODE_COVERAGE=ON 
+            -DBUILD_TOOLS=ON 
+            -DCMAKE_BUILD_TYPE=Debug 
+            -DGCOVR_ADDITIONAL_ARGS="--gcov-executable=gcov-13"
+        - cmake --build build
+        - cmake --build build --target fms-test_coverage
+        - gcovr --xml-pretty --exclude-unreachable-branches
+            --print-summary -o build/coverage.xml
+            --gcov-executable gcov-13
+            --exclude build/
+            --exclude scheduler/flowshopvis
+        - cmake --build build --target doc
+        - mv build/doc/html pages && mv build/fms-test_coverage pages/coverage
+
+    coverage: /^\s*lines:\s*\d+.\d+\%/
+    artifacts:
+        paths:
+            - build/bin/app
+            - build/bin/flowshopvis
+            - build/bin/fms-test
+            - build/coverage.xml
+            - pages
+        when: always
+        reports:
+            coverage_report:
+                coverage_format: cobertura
+                path: build/coverage.xml
+            junit: build/report.xml
+        expire_in: 1 week
+    environment:
+        name: review/$CI_COMMIT_REF_NAME
+        url: "https://$CI_PROJECT_NAMESPACE.pages.tue.nl/-/$CI_PROJECT_NAME/-/jobs/$CI_JOB_ID/artifacts/pages/index.html"
+        
+pages:
+    stage: deploy
+    tags:
+        - samfms
+    needs:
+        - job: test
+          artifacts: true
+    script:
+        - mv pages public
+    artifacts:
+        paths:
+            - public
+    only:
+        - master

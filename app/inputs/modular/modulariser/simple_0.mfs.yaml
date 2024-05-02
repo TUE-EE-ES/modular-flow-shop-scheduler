@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../../config/modulariser.schema.json
+pattern_modules:
+  - modules:
+      - - 0
+        - 2
+    default_setup_time: 30
+    default_deadline: 30
+  - modules:
+      - - 0
+        - 3
+    default_setup_time: 30
+    default_deadline: 30
+  - modules:
+      - - 0
+        - 4
+    default_setup_time: 30
+    default_deadline: 30
+  - modules:
+      - - 0
+        - 5
+    default_setup_time: 30
+    default_deadline: 30
+  - modules:
+      - - 0
+        - 6
+    default_setup_time: 30
+    default_deadline: 30
+  - modules:
+      - - 0
+        - 7
+    default_setup_time: 30
+    default_deadline: 30
+  - modules:
+      - - 0
+        - 8
+    default_setup_time: 30
+    default_deadline: 30
+  - modules:
+      - - 0
+        - 9
+    default_setup_time: 30
+    default_deadline: 30
+  - modules:
+      - - 0
+        - 10
+    default_setup_time: 30
+    default_deadline: 30

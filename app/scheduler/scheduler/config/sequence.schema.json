@@ -1,0 +1,76 @@
+{
+    "$schema": "https://json-schema.org/draft-07/schema",
+    "title": "Sequence file",
+    "description": "A sequence file is a file that contains the sequence of operations to be used for scheduling",
+    "type": "object",
+    "oneOf": [
+        {
+            "$ref": "#/definitions/basicSequenceFile"
+        }
+    ],
+    "definitions": {
+        "operation": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+                "type": "integer"
+            }
+        },
+        "machineSequence": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/operation"
+            },
+            "minItems": 1
+        },
+        "iterationSequence": {
+            "type": "object",
+            "patternProperties": {
+                "^[0-9]+$": {
+                    "$ref": "#/definitions/machineSequence"
+                }
+            }
+        },
+        "sequence": {
+            "type": "object",
+            "patternProperties": {
+                "^[0-9]+$": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/definitions/machineSequence"
+                        },
+                        {
+                            "$ref": "#/definitions/iterationSequence"
+                        }
+                    ]
+                }
+            },
+            "additionalProperties": false
+        },
+        "basicSequenceFile": {
+            "type": "object",
+            "properties": {
+                "machineSequences": {
+                    "$ref": "#/definitions/sequence"
+                }
+            },
+            "required": [
+                "machineSequences"
+            ]
+        },
+        "modulesSequenceFile": {
+            "type": "object",
+            "properties": {
+                "modules": {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[0-9]+$": {
+                            "$ref": "#/definitions/basicSequenceFile"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

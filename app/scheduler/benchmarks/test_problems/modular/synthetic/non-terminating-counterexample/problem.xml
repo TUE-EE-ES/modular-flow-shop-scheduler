@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Manually generated -->
+<SPInstance type="Modular">
+    <SPInstance type="FORPFSSPSD" id="0">
+        <jobs count="3">
+            <operations count="1" />
+        </jobs>
+        <flowVector>
+            <component job="0" index="0" value="0" />
+            <component job="1" index="0" value="0" />
+            <component job="2" index="0" value="0" />
+        </flowVector>
+        <processingTimes default="1" />
+        <setupTimes default="1" />
+    </SPInstance>
+    <SPInstance type="FORPFSSPSD" id="1">
+        <jobs count="3">
+            <operations count="2" />
+        </jobs>
+        <flowVector>
+            <component job="0" index="0" value="0" />
+            <component job="0" index="1" value="0" />
+            <component job="1" index="0" value="0" />
+            <component job="1" index="1" value="0" />
+            <component job="2" index="0" value="0" />
+            <component job="2" index="1" value="0" />
+        </flowVector>
+        <processingTimes default="1" />
+        <setupTimes default="1">
+            <s j1="2" op1="0" j2="1" op2="1" value="99" />
+        </setupTimes>
+        <relativeDueDatesIndependent>
+            <d j1="0" op1="1" j2="0" op2="0" value="2" />
+            <d j1="2" op1="0" j2="1" op2="0" value="4" />
+        </relativeDueDatesIndependent>
+    </SPInstance>
+    <SPInstance type="FORPFSSPSD" id="2">
+        <jobs count="3">
+            <operations count="1" />
+        </jobs>
+        <flowVector>
+            <component job="0" index="0" value="0" />
+            <component job="1" index="0" value="0" />
+            <component job="2" index="0" value="0" />
+        </flowVector>
+        <processingTimes default="1" />
+        <setupTimes default="1" />
+    </SPInstance>
+    <transfers>
+        <modulesTransfer id_from="0" id_to="1">
+            <setupTimes default="0" />
+            <relativeDueDates>
+                <d j="0" value="0" />
+                <d j="1" value="0" />
+                <d j="2" value="0" />
+            </relativeDueDates>
+        </modulesTransfer>
+        <modulesTransfer id_from="1" id_to="2">
+            <setupTimes default="0" />
+            <relativeDueDates>
+                <d j="0" value="0" />
+                <d j="1" value="0" />
+                <d j="2" value="0" />
+            </relativeDueDates>
+        </modulesTransfer>
+    </transfers>
+</SPInstance>

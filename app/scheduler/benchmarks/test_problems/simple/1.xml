@@ -1,0 +1,73 @@
+<SPInstance type="FORPFSSPSD">
+  <jobs count="5">
+    <operations count="4"/>
+  </jobs>
+  <flowVector>
+    <component job="0" index="0" value="0"/>
+    <component job="0" index="1" value="1"/>
+    <component job="0" index="2" value="1"/>
+    <component job="0" index="3" value="2"/>
+    <component job="1" index="0" value="0"/>
+    <component job="1" index="2" value="1"/>
+    <component job="1" index="3" value="2"/>
+    <component job="2" index="0" value="0"/>
+    <component job="2" index="1" value="1"/>
+    <component job="2" index="2" value="1"/>
+    <component job="2" index="3" value="2"/>
+    <component job="3" index="0" value="0"/>
+    <component job="3" index="2" value="1"/>
+    <component job="3" index="3" value="2"/>
+    <component job="4" index="0" value="0"/>
+    <component job="4" index="1" value="1"/>
+    <component job="4" index="2" value="1"/>
+    <component job="4" index="3" value="2"/>
+  </flowVector>
+  <processingTimes default="30"/>
+  <sizes default="0"/>
+  <setupTimesIndependent>
+    <s j1="0" op1="1" j2="0" op2="2" value="70"/>
+    <s j1="2" op1="1" j2="2" op2="2" value="70"/>
+    <s j1="4" op1="1" j2="4" op2="2" value="70"/>
+  </setupTimesIndependent>
+  <setupTimes default="0">
+    <s j1="0" op1="0" j2="1" op2="0" value="20"/>
+    <s j1="0" op1="0" j2="2" op2="0" value="20"/>
+    <s j1="1" op1="0" j2="2" op2="0" value="20"/>
+    <s j1="1" op1="0" j2="3" op2="0" value="20"/>
+    <s j1="2" op1="0" j2="3" op2="0" value="20"/>
+    <s j1="2" op1="0" j2="4" op2="0" value="20"/>
+    <s j1="3" op1="0" j2="4" op2="0" value="20"/>
+    <s j1="0" op1="1" j2="2" op2="1" value="20"/>
+    <s j1="0" op1="2" j2="1" op2="2" value="20"/>
+    <s j1="0" op1="2" j2="2" op2="1" value="20"/>
+    <s j1="0" op1="2" j2="2" op2="2" value="20"/>
+    <s j1="1" op1="2" j2="2" op2="1" value="20"/>
+    <s j1="1" op1="2" j2="2" op2="2" value="20"/>
+    <s j1="1" op1="2" j2="3" op2="2" value="20"/>
+    <s j1="2" op1="1" j2="4" op2="1" value="20"/>
+    <s j1="2" op1="2" j2="3" op2="2" value="20"/>
+    <s j1="2" op1="2" j2="4" op2="1" value="20"/>
+    <s j1="2" op1="2" j2="4" op2="2" value="20"/>
+    <s j1="3" op1="2" j2="4" op2="1" value="20"/>
+    <s j1="3" op1="2" j2="4" op2="2" value="20"/>
+    <s j1="0" op1="3" j2="1" op2="3" value="20"/>
+    <s j1="1" op1="3" j2="2" op2="3" value="20"/>
+    <s j1="2" op1="3" j2="3" op2="3" value="20"/>
+    <s j1="3" op1="3" j2="4" op2="3" value="20"/>
+  </setupTimes>
+  <relativeDueDates>
+    <d j1="0" op1="1" j2="0" op2="0" value="30"/>
+    <d j1="0" op1="3" j2="0" op2="2" value="30"/>
+    <d j1="0" op1="2" j2="0" op2="1" value="1200"/>
+    <d j1="1" op1="3" j2="1" op2="2" value="30"/>
+    <d j1="1" op1="2" j2="1" op2="0" value="30"/>
+    <d j1="2" op1="1" j2="2" op2="0" value="30"/>
+    <d j1="2" op1="3" j2="2" op2="2" value="30"/>
+    <d j1="2" op1="2" j2="2" op2="1" value="1200"/>
+    <d j1="3" op1="3" j2="3" op2="2" value="30"/>
+    <d j1="3" op1="2" j2="3" op2="0" value="30"/>
+    <d j1="4" op1="1" j2="4" op2="0" value="30"/>
+    <d j1="4" op1="3" j2="4" op2="2" value="30"/>
+    <d j1="4" op1="2" j2="4" op2="1" value="1200"/>
+  </relativeDueDates>
+</SPInstance>

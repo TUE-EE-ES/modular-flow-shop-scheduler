@@ -1,0 +1,342 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": [
+        "flow_shops",
+        "patterns"
+    ],
+    "properties": {
+        "output_name": {
+            "type": "string"
+        },
+        "description": {
+            "type": "string"
+        },
+        "flow_shops": {
+            "type": "object",
+            "patternProperties": {
+                "\\d+": {
+                    "$ref": "#/$defs/SingleFlowShopSpec"
+                }
+            },
+            "additionalProperties": false
+        },
+        "patterns": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/JobPattern"
+            }
+        },
+        "patterns_modules": {
+            "type": "object",
+            "required": [
+                "patterns"
+            ],
+            "properties": {
+                "default_setup_time": {
+                    "type": "integer",
+                    "default": 0
+                },
+                "default_deadline": {
+                    "type": "integer",
+                    "default": 0
+                },
+                "patterns": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/ModulePattern"
+                    }
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": false,
+    "description": "Description of a flow-shop specification.",
+    "$defs": {
+        "SingleFlowShopSpec": {
+            "type": "object",
+            "required": [
+                "jobs",
+                "machines"
+            ],
+            "properties": {
+                "jobs": {
+                    "type": "object",
+                    "patternProperties": {
+                        "\\d+": {
+                            "$ref": "#/$defs/JobSpec"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "machines": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "description": "A specification of a single flow-shop problem."
+        },
+        "JobSpec": {
+            "type": "object",
+            "required": [
+                "ops"
+            ],
+            "properties": {
+                "ops": {
+                    "type": "object",
+                    "patternProperties": {
+                        "\\d+": {
+                            "$ref": "#/$defs/OpSpec"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "deadlines": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/TimeFuncSpec"
+                    },
+                    "uniqueItems": true,
+                    "default": []
+                },
+                "setup": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/TimeFuncSpec"
+                    },
+                    "uniqueItems": true,
+                    "default": []
+                }
+            },
+            "description": "JobSpec(ops: 'dict[int, OpSpec]', deadlines: 'set[TimeFuncSpec]' = <factory>, setup: 'set[TimeFuncSpec]' = <factory>)"
+        },
+        "OpSpec": {
+            "type": "object",
+            "required": [
+                "time_processing",
+                "machine"
+            ],
+            "properties": {
+                "machine": {
+                    "type": "integer"
+                },
+                "time_processing": {
+                    "type": "integer"
+                },
+                "time_sequence_dependent": {
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "patternProperties": {
+                                "^-?\\d+$": {
+                                    "type": "integer"
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "integer"
+                        }
+                    ]
+                },
+                "size": {
+                    "type": "integer",
+                    "default": 0
+                }
+            },
+            "description": "OpSpec(time_processing: 'int', time_sequence_dependent: 'int', machine: 'int', size: 'int' = 0)"
+        },
+        "TransferSpec": {
+            "type": "object",
+            "required": [
+                "time"
+            ],
+            "properties": {
+                "time": {
+                    "type": "integer"
+                },
+                "id_module": {
+                    "type": "integer",
+                    "default": -1
+                },
+                "id_job": {
+                    "type": "integer",
+                    "default": -1
+                }
+            }
+        },
+        "TimeFuncSpec": {
+            "type": "object",
+            "required": [
+                "op1",
+                "op2",
+                "time"
+            ],
+            "properties": {
+                "op1": {
+                    "type": "integer"
+                },
+                "op2": {
+                    "type": "integer"
+                },
+                "time": {
+                    "type": "integer"
+                }
+            },
+            "description": "TimeFuncSpec(op1: 'int', op2: 'int', time: 'int')"
+        },
+        "JobPattern": {
+            "type": "object",
+            "required": [
+                "jobs"
+            ],
+            "properties": {
+                "jobs": {
+                    "type": "array",
+                    "items": {
+                        "anyOf": [
+                            {
+                                "type": "array",
+                                "minItems": 2,
+                                "maxItems": 2,
+                                "prefixItems": [
+                                    {
+                                        "type": "integer"
+                                    },
+                                    {
+                                        "type": "integer"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "integer"
+                            }
+                        ]
+                    }
+                },
+                "setup_times": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/FullTimeFuncSpec"
+                    },
+                    "uniqueItems": true,
+                    "default": []
+                },
+                "deadlines": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/FullTimeFuncSpec"
+                    },
+                    "uniqueItems": true,
+                    "default": []
+                },
+                "deadlines_job_default": {
+                    "type": "integer"
+                },
+                "deadlines_job": {
+                    "type": "object",
+                    "patternProperties": {
+                        "\\d+": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "description": "Description of the specification of a pattern of jobs."
+        },
+        "FullTimeFuncSpec": {
+            "type": "object",
+            "required": [
+                "op_src",
+                "op_dst",
+                "value"
+            ],
+            "properties": {
+                "op_src": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "prefixItems": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "integer"
+                        }
+                    ]
+                },
+                "op_dst": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "prefixItems": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "integer"
+                        }
+                    ]
+                },
+                "value": {
+                    "type": "integer"
+                }
+            },
+            "description": "FullTimeFuncSpec(op_src: 'FullOperationId', op_dst: 'FullOperationId', value: 'int')"
+        },
+        "ModulePattern": {
+            "type": "object",
+            "required": [
+                "modules"
+            ],
+            "properties": {
+                "modules": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "prefixItems": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "integer"
+                            }
+                        ]
+                    }
+                },
+                "default_setup_time": {
+                    "type": "integer",
+                    "default": 0
+                },
+                "default_deadline": {
+                    "type": "integer",
+                    "default": 0
+                },
+                "setup_times": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/TransferSpec"
+                    },
+                    "uniqueItems": true,
+                    "default": []
+                },
+                "deadlines": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/TransferSpec"
+                    },
+                    "uniqueItems": true,
+                    "default": []
+                }
+            },
+            "additionalProperties": false,
+            "description": "Description of the specification of a pattern of modules."
+        }
+    }
+}

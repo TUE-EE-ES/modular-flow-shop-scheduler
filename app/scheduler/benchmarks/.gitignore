@@ -1,0 +1,11 @@
+graph.txt
+input.dot
+*.tex
+*.txt
+*.sequence
+
+# Sequence JSON files are used to store sequences originally defined in YAML
+*sequence.json 
+
+# Extra benchmarks can be added here. These won't be commited in the repo.
+extra/ 
