@@ -35,7 +35,7 @@ docker build . -t modular-scheduling:multi-node -f ./config/deploys/distributed-
 ```
 
 To run the experiments you need to pass the `SLURM_ARRAY_TASK_ID` and `SLURM_ARRAY_TASK_MAX` as
-environment variables. You don't need SLURM to use them, they are simply read by the python script. `SLURM_ARRAY_TASK_ID` starts at 0 and ends at `SLURM_ARRAY_TASK_MAX` - 1. You also need to mount the `/app/data/run/` directory. To run the experiments
+environment variables. You don't need SLURM to use them, they are simply read by the python script. `SLURM_ARRAY_TASK_ID` starts at 1 and ends at `SLURM_ARRAY_TASK_MAX`. You also need to mount the `/app/data/run/` directory. To run the experiments
 you need to run the following:
 
 ```bash
