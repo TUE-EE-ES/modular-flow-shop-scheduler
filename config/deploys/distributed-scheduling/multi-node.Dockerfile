@@ -7,6 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive PIP_ROOT_USER_ACTION=ignore
 
 # Install dependencies of the scheduler
 RUN <<EOF 
+set -e
 apt-get update
 apt-get install -y \
     git python3-pip python3-venv wget graphviz libgraphviz-dev ninja-build software-properties-common
@@ -19,6 +20,7 @@ RUN wget -q -O cmake.sh https://github.com/Kitware/CMake/releases/download/v3.28
 
 # Julia is used to generate the data for the experiments form the input specification files
 RUN <<EOF
+set -e
 wget --progress=dot:giga https://julialang-s3.julialang.org/bin/linux/x64/1.10/julia-1.10.2-linux-x86_64.tar.gz
 tar -xzf julia-1.10.2-linux-x86_64.tar.gz -C /opt
 ln -s /opt/julia-1.10.2/bin/julia /usr/local/bin/julia
@@ -27,6 +29,7 @@ EOF
 
 # Poetry installs the dependencies of the python script used to run and analyze the results
 RUN <<EOF
+set -e
 pip3 install pipx
 pipx install poetry
 ln -s /root/.local/bin/poetry /usr/local/bin/poetry
@@ -36,37 +39,41 @@ EOF
 # own license to download it from the IBM website.
 COPY ./extra/cplex_studio2211.linux_x86_64.bin /
 RUN <<EOF
+set -e
 /cplex_studio2211.linux_x86_64.bin -i silent -DLICENSE_ACCEPTED=TRUE -DUSER_INSTALL_DIR=/opt/ibm/ILOG/CPLEX_Studio2211
 rm /cplex_studio2211.linux_x86_64.bin
 ln -s /opt/ibm/ILOG/CPLEX_Studio2211/cpoptimizer/bin/x86-64_linux/cpoptimizer /usr/local/bin/cpoptimizer
 EOF
 
-COPY ./app /app
-WORKDIR /app
+COPY ./ /app
+WORKDIR /app/app
 
 # Build the scheduler
 RUN <<EOF
+set -e
 cd scheduler/scheduler
 CC=gcc-13 CXX=g++-13 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 mkdir -p /app/data/bin
 ln -s /app/scheduler/scheduler/build/bin/app /app/data/bin/scheduler
+cp /app/config/cp-solver.sh /app/data/bin/cp-solver
+chmod +x /app/data/bin/cp-solver
 EOF
 
 # Generate the data for the experiments
 RUN <<EOF
+set -e
 julia --project=. --threads=auto ./install.jl
 julia --project=. --threads=auto ./app.jl gen inputs/paper/distributed-scheduling
 EOF
 
 # Install the python dependencies
 RUN <<EOF
+set -e
 poetry config virtualenvs.in-project true
 poetry install
 cd models
 poetry install --no-root
 EOF
-
-COPY --chmod=0755 ./config/cp-solver.sh /app/data/bin/cp-solver
 
 CMD "poetry" "run" "modfs" "run" "--algorithm=bhcs" "--modular-algorithm" "broadcast" "cocktail" "constraint"

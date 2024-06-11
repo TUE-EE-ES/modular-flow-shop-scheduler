@@ -8,14 +8,31 @@ This repository contains all the code to generate, run and analyse the experimen
 - [Modular scheduling experiments](#modular-scheduling-experiments)
   - [Table of contents](#table-of-contents)
   - [Docker implementation (recommended)](#docker-implementation-recommended)
+    - [Requisites](#requisites)
+    - [Single-node docker image](#single-node-docker-image)
     - [Multi-node-enabled docker image](#multi-node-enabled-docker-image)
   - [Project structure](#project-structure)
 
 
 ## Docker implementation (recommended)
 
+For convenience, we've provided two docker images that can be used to recreate the experiments:
+- The single-node docker image creates a docker image that installs the dependencies, runs and
+  analyses the experiments in a single node.
+- The multi-node-enabled docker image creates a docker image with the dependencies to run the
+  experiments in a multi-node environment. The image is built without running the experiments and
+  it is expected to be run in a multi-node environment.
+
+### Requisites
+
+To build the docker images you need the following:
+- Docker installed in your machine. You can download it from the [official website](https://www.docker.com/get-started).
+- The CP Optimizer installation file (`cplex_studio2211.linux_x86_64.bin`). You can download the file from the IBM website. You need to create an account to download the file and have a valid license. Place the file in the `extra` directory: `extra/cplex_studio2211.linux_x86_64.bin`.
+
+### Single-node docker image
+
 For convenience, we've provided a Dockerfile that installs the dependencies, runs and analyses the
-experiments. To build the docker image run the following:
+experiments. To build the docker image do the following:
 
 ```bash
 docker build . -t modular-scheduling:single-node -f ./config/deploys/distributed-scheduling/single-node.Dockerfile
