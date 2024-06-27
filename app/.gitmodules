@@ -1,0 +1,3 @@
+[submodule "scheduler"]
+	path = scheduler
+	url = git@gitlab.tue.nl:sam-fms/fms-scheduler
