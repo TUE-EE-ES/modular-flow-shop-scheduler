@@ -65,6 +65,10 @@ RUN <<EOF
 set -e
 julia --project=. --threads=auto ./install.jl
 julia --project=. --threads=auto ./app.jl gen inputs/paper/distributed-scheduling
+mkdir -p data/gen/generic
+mv data/gen/mixed data/gen/printer_cases data/gen/generic
+mkdir data/gen/computational
+cp -R data/gen/mixed/duplex/bookletA data/gen/mixed/duplex/bookletAB data/gen/computational
 EOF
 
 # Install the python dependencies
@@ -76,8 +80,9 @@ cd models
 poetry install --no-root
 EOF
 
-RUN poetry run modfs run --algorithm=bhcs --modular-algorithm broadcast cocktail constraint
+# RUN poetry run modfs run --modular-algorithm broadcast cocktail constraint --algorithm bhcs simple --time-limit 600 --in data/run/
+# RUN poetry run modfs run --algorithm=bhcs --modular-algorithm broadcast cocktail constraint
 # If you already have the data, you can comment the previous line and copy it to the container by uncommenting the following lines
-# COPY ./extra/data/run/ /app/data/run/
+COPY ./extra/data/run/ /app/data/run/
 
 RUN cd /app/notebooks/papers/ && poetry run jupyter execute distributed_scheduling.ipynb
