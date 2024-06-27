@@ -1,9 +1,10 @@
 """Loads data from scheduling results."""
 
+import os
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, NamedTuple, Optional
+from typing import Iterator, NamedTuple, Optional, Literal
 
 import cbor2
 import pandas as pd
@@ -12,7 +13,7 @@ from tqdm.auto import tqdm
 
 from modfs.utils import load_info_files
 
-_CACHE_FILE_NAME = "cache_v5.parquet"
+_CACHE_FILE_NAME = "cache_v6.parquet"
 
 
 class _ProblemInfo(NamedTuple):
@@ -23,6 +24,9 @@ class _ProblemInfo(NamedTuple):
     timeout: bool
     solved: bool
     error: str
+    optimal: bool
+    optimality_gap: float
+    lower_bound: int
 
 
 @dataclass(slots=True)
@@ -54,25 +58,28 @@ class _Loader(Task):
             yield _LoaderParameters(idx=i, cbor_file=file)
 
     @staticmethod
-    def processor_function(p: _LoaderParameters) -> Optional[_LoaderResult]:
-        with open(p.cbor_file, mode="rb") as f:
-            cbor_data: dict = cbor2.load(f)
+    def processor_function(parameters: _LoaderParameters) -> Optional[_LoaderResult]:
+        with open(parameters.cbor_file, mode="rb") as f:
+            cbor_data: dict = cbor2.load(f)  # type: ignore # VS Code complains and it is wrong
 
             return _LoaderResult(
-                p.idx,
+                parameters.idx,
                 _ProblemInfo(
-                    makespan=cbor_data.get("minMakespan", None),
+                    makespan=cbor_data.get("minMakespan", None),  # May be missing if not solved
                     iterations=cbor_data.get("iterations", None),
                     total_time=cbor_data.get("totalTime", None),
                     time_per_job=cbor_data.get("timePerJob", None),
                     timeout=cbor_data.get("timeout", None),
                     solved=cbor_data["solved"],
                     error=cbor_data.get("error", ""),
+                    optimal=cbor_data.get("optimal", False),
+                    optimality_gap=cbor_data.get("optimalityGap", None),
+                    lower_bound=cbor_data.get("lowerBound", None),
                 ),
             )
 
-    def process_output(self, output: _LoaderResult) -> bool:
-        self.problem_info.append(output)
+    def process_output(self, result: _LoaderResult) -> bool:
+        self.problem_info.append(result)
         return False
 
 
@@ -90,33 +97,35 @@ def _get_cached_or_to_load(path: Path) -> tuple[list[Path], list[pd.DataFrame], 
             continue
 
         json_info["original_path"] = json_info["original_path"].replace("/files_info.json", "")
+        num_files = len(json_info["files"])
+
+        data["run_file_path"] += [str(info_file_path.parent)] * num_files
+        data["original_path"] += [json_info["original_path"]] * num_files
+
+        data["run"] += [json_info["runs"]] * num_files
+        data["algorithm"] += [json_info["algorithm"]] * num_files
+        data["modular_algorithm"] += [json_info["modular_algorithm"]] * num_files
+        data["time_limit"] += [json_info["time_out"]] * num_files
 
         for file_id, file_info in json_info["files"].items():
             folder_path = info_file_path.parent / file_id
+
+            data["file_id"].append(int(file_id))
+            data["jobs"].append(file_info["jobs"])
+            data["modules"].append(file_info["modules"])
+
+            # This is an optional value
+            try:
+                deadline = file_info["modules_info"]["0"]["deadlines"]["default"]
+            except KeyError:
+                deadline = float("nan")
+            data["deadline"].append(deadline)
 
             # If the file does not exist, skip it and show a warning
             cbor_file = folder_path / f"{file_id}.cbor"
             if not cbor_file.exists():
                 print(f"WARNING: {cbor_file} does not exist")
                 continue
-
-            data["run_file_path"].append(str(info_file_path))
-            data["file_id"].append(int(file_id))
-            data["jobs"].append(file_info["jobs"])
-            data["modules"].append(file_info["modules"])
-            data["run"].append(json_info["runs"])
-            data["algorithm"].append(json_info["algorithm"])
-            data["original_path"].append(json_info["original_path"])
-            data["modular_algorithm"].append(json_info["modular_algorithm"])
-            data["upper_bound_iterations"].append(int(json_info["upper_bound_iterations"]))
-
-            # This is an optional value
-            try:
-                deadline = file_info["modules_info"]["0"]["deadlines"]["default"]
-            except KeyError:
-                deadline = float('nan')
-            data["deadline"].append(deadline)
-
             cbor_files.append(cbor_file)
 
     return cbor_files, df_cached, pd.DataFrame.from_dict(data)
@@ -124,7 +133,7 @@ def _get_cached_or_to_load(path: Path) -> tuple[list[Path], list[pd.DataFrame], 
 
 def _write_cache(df_loaded: pd.DataFrame):
     for info_file_path, df in df_loaded.groupby("run_file_path"):
-        cache_file = Path(str(info_file_path)).parent / _CACHE_FILE_NAME
+        cache_file = Path(str(info_file_path)) / _CACHE_FILE_NAME
         df.to_parquet(cache_file, index=False)
 
 
@@ -134,7 +143,7 @@ def load_results(path: Path) -> pd.DataFrame:
     if len(cbor_files) > 0:
         # We need to load new files
         loader = _Loader(cbor_files)
-        loader.execute_tasks(description="Loading cbor files")
+        loader.execute_tasks(description="Loading cbor files", debug=False)
         loaded_results = map(
             lambda x: x.problem_info, sorted(loader.problem_info, key=lambda x: x.idx)
         )
@@ -153,6 +162,8 @@ def add_derived_columns(
     exclude_paths: list[str] | None = None,
     groups: dict[str, set[str]] | None = None,
     gen_subpath: str = "",
+    run_subpath: Path | None = None,
+    group_source: Literal["original_path", "run_file_path"] = "original_path",
 ) -> pd.DataFrame:
     """Generate derived columns from a result data frame.
 
@@ -165,6 +176,8 @@ def add_derived_columns(
             column matches any of the values of the dictionary will be added to the given group.
             If None, a column with an empty "" group will be created. Defaults to None.
         gen_subpath (optional): Subpath to remove from the `original_path` column.
+        run_subpath (optional): Subpath to remove from the `run_file_path` column.
+        group_source (optional): Column to use for grouping. Defaults to "original_path".
 
     Returns:
         pandas.DataFrame: Original dataframe with the derived columns added.
@@ -175,35 +188,59 @@ def add_derived_columns(
     df = df.loc[~df["original_path"].isin(exclude_paths)].copy()
     df["time_per_iteration"] = df["total_time"] / df["iterations"]
     df["time_per_job"] = df["total_time"] / df["jobs"]
-    df.replace({"original_path": rf"{gen_subpath}/(.*)"}, r"\1", regex=True, inplace=True)
+    df["original_path"] = df["original_path"].str.replace(rf"{gen_subpath}/(.*)", r"\1", regex=True)
+    df["run_file_path"] = df["run_file_path"].str.replace(r"run_\d+", "", regex=True)
 
-    main_keys = [
-        "original_path",
-        "file_id",
-        "modules",
-        "jobs",
-        "algorithm",
-        "modular_algorithm",
-        "deadline",
-        "upper_bound_iterations",
-    ]
-    df = df.groupby(main_keys, as_index=False, dropna=False).agg(
-        {
-            "makespan": "mean",
-            "iterations": "mean",
-            "total_time": "mean",
-            "time_per_job": "mean",
-            "timeout": "all",
-            "solved": "any",
-        }
-    )
-    df.sort_values(main_keys, inplace=True)
+    if run_subpath is not None:
+
+        def _remove_path_prefix(path_str: str) -> str:
+            try:
+                return os.path.relpath(path_str, run_subpath).replace("\\", "/")
+            except ValueError:
+                return path_str
+
+        df["run_file_path"] = df["run_file_path"].map(_remove_path_prefix)
 
     df["group"] = ""
     if groups is not None:
         for group, values in groups.items():
-            selected = df["original_path"].isin(values)
+            selected = df[group_source].str.startswith(tuple(values))
             df.loc[selected, "group"] = group
+
+    # We drop run_file_path because there's the option of running experiments multiple times
+    # and the run_file_path will be different for each run. That is why we assign the groups
+    # before dropping the column.
+    main_keys = [
+        "group",
+        "run_file_path",
+        "original_path",
+        "file_id",
+        "modules",
+        "jobs",
+        "modular_algorithm",
+        "algorithm",
+        "time_limit",
+        "deadline",
+    ]
+    df = df.groupby(main_keys, as_index=False, dropna=False).agg(
+        {
+            "iterations": "mean",
+            "total_time": "mean",
+            "time_per_job": "mean",
+            "makespan": "mean",
+            "optimality_gap": "min",
+            "lower_bound": "max",
+            "timeout": "all",
+            "solved": "any",
+            "optimal": "any",
+            "error": "first",
+        }
+    )
+    df.sort_values(main_keys, inplace=True)
+    
+    # If error is empty and solved is True, set it to 'none'
+    df.loc[((df["error"] == "") & df["solved"]), "error"] = "none"
+    
 
     # set group as a new level of the multi-level index
     return df
