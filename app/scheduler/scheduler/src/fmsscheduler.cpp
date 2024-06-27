@@ -1,3 +1,6 @@
+#include "pch/containers.hpp"
+#include "pch/utils.hpp"
+
 #include "fmsscheduler.h"
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
@@ -6,7 +9,6 @@
 #include "delayGraph/delayGraph.h"
 #include "partialsolution.h"
 #include "solvers/anytimeheuristic.h"
-#include "solvers/backtrack.hpp"
 #include "solvers/branchbound.h"
 #include "solvers/broadcast_line_solver.hpp"
 #include "solvers/cocktail_line_solver.hpp"
@@ -16,8 +18,8 @@
 #include "solvers/mneh-heuristic.h"
 #include "solvers/paretoheuristic.h"
 #include "solvers/sequence.hpp"
-
-#include "pch/utils.hpp"
+#include "solvers/simple.hpp"
+#include "versioning.h"
 
 #include <chrono>
 #include <fmt/compile.h>
@@ -50,38 +52,32 @@ FORPFSSPSD::Instance FmsScheduler::loadFlowShopInstance(commandLineArgs &args,
     return instance;
 }
 
-/**
- * @brief RankingHeuristic::checkConsistency
- * @param flowshop
- * @param bounds is set to true when the initial graph is consistent, false otherwise
- * @return earliest possible starting times of operations given the initial constraints
- */
 std::pair<bool, std::vector<delay>>
 FmsScheduler::checkConsistency(const FORPFSSPSD::Instance &flowshop) {
     bool bounds = true; // consistent, unless found otherwise
     const delayGraph &dg = flowshop.getDelayGraph();
 
-    for (unsigned int job = 0; job < flowshop.getNumberOfJobs(); ++job) {
-        unsigned int prevOp = 0;
+    for (const auto &[jobId, ops] : flowshop.jobs()) {
+        const auto &prevOp = ops.front();
 
-        for (unsigned int op = 1; op < flowshop.getNumberOfOperationsPerJob(); ++op) {
+        for (const auto &op : ops | std::views::drop(1)) {
             // check the intra-job constraints
+            if (!dg.has_edge(op, prevOp)) {
+                continue;
+            }
 
-            if (dg.has_edge(dg.get_vertex({job, op}), dg.get_vertex({job, prevOp}))) {
-                // check intra-job constraints
-                edge minimumSetupTime =
-                        dg.get_edge(dg.get_vertex({job, prevOp}), dg.get_vertex({job, op}));
-                edge deadline = dg.get_edge(dg.get_vertex({job, op}), dg.get_vertex({job, prevOp}));
-                if (minimumSetupTime.weight + deadline.weight > 0) {
-                    bounds = false; // deadline cannot be satisfied locally.
-                    LOG(LOGGER_LEVEL::WARNING,
-                        fmt::format(FMT_COMPILE("Deadline between {} and {} cannot be "
-                                                "satisfied ({} > {})\n"),
-                                    FORPFSSPSD::operation{job, prevOp},
-                                    FORPFSSPSD::operation{job, op},
-                                    minimumSetupTime.weight,
-                                    -deadline.weight));
-                }
+            // check intra-job constraints
+            edge minimumSetupTime = dg.get_edge(prevOp, op);
+            edge deadline = dg.get_edge(op, prevOp);
+            if (minimumSetupTime.weight + deadline.weight > 0) {
+                bounds = false; // deadline cannot be satisfied locally.
+                LOG(LOGGER_LEVEL::WARNING,
+                    fmt::format(FMT_COMPILE("Deadline between {} and {} cannot be "
+                                            "satisfied ({} > {})\n"),
+                                prevOp,
+                                op,
+                                minimumSetupTime.weight,
+                                -deadline.weight));
             }
         }
     }
@@ -91,7 +87,7 @@ FmsScheduler::checkConsistency(const FORPFSSPSD::Instance &flowshop) {
 
     bounds = bounds && result.positiveCycle.empty();
     // earliest possible start times, given no interleavings;
-    return std::make_pair(bounds, vec);
+    return {bounds, std::move(vec)};
 }
 
 std::tuple<std::vector<PartialSolution>, nlohmann::json>
@@ -122,6 +118,8 @@ FmsScheduler::runAlgorithm(FORPFSSPSD::Instance &flowShopInstance,
         return algorithm::DDSolver::solve(flowShopInstance, args);
     case AlgorithmType::GIVEN_SEQUENCE:
         return algorithm::Sequence::solve(flowShopInstance, args, iteration);
+    case AlgorithmType::SIMPLE:
+        return algorithm::SimpleScheduler::solve(flowShopInstance, args);
     default:
         throw std::runtime_error(
                 fmt::format("FmsScheduler::runAlgorithm: algorithm '{}' not supported",
@@ -146,8 +144,6 @@ FmsScheduler::runAlgorithm(FORPFSSPSD::ProductionLine &problemInstance,
     // The modular scheduler may use any algorithm so we cannot call the modular solver
     // within the runAlgorithm method
     switch (args.modularAlgorithm) {
-    case ModularAlgorithmType::BACKTRACK:
-        return algorithm::BackTrackSolver::solve(problemInstance, args);
     case ModularAlgorithmType::BROADCAST:
         return algorithm::BroadcastLineSolver::solve(problemInstance, args);
     case ModularAlgorithmType::COCKTAIL:
@@ -174,8 +170,8 @@ void FmsScheduler::saveSolution(const PartialSolution &solution,
             }
         }
         data["schedule"] = schedule;
-        data["sequence"] = algorithm::Sequence::savePerMachineSequences(
-                solution.getChosenEdgesPerMachine(), problem);
+        data.update(algorithm::Sequence::savePerMachineSequencesTop(
+                solution.getChosenEdgesPerMachine(), problem.getDelayGraph()));
 
     } else {
         auto tmpArgs = args;
@@ -201,7 +197,7 @@ void FmsScheduler::saveSolution(const FMS::ProductionLineSolution &solution,
         }
     }
     data["solution"] = schedule;
-    data["sequence"] = algorithm::Sequence::saveProductionLineSequences(solution, problem);
+    data.update(algorithm::Sequence::saveProductionLineSequencesTop(solution, problem));
 }
 
 void FmsScheduler::computeShop(commandLineArgs &args, FORPFSSPSDXmlParser parser) {
@@ -225,7 +221,8 @@ nlohmann::json FmsScheduler::initializeData(const commandLineArgs &args) {
             {"timeout", false},
             {"productivity", args.productivityWeight},
             {"flexibility", args.flexibilityWeight},
-            {"timeOutValue", args.timeOut.count()}};
+            {"timeOutValue", args.timeOut.count()},
+            {"version", VERSION}};
 }
 
 void FmsScheduler::saveJSONFile(const nlohmann::json &data, const commandLineArgs &args) {

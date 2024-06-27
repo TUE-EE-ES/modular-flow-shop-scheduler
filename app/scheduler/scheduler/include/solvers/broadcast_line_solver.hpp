@@ -1,28 +1,19 @@
 #ifndef MODULAR_SOLVER_HPP
 #define MODULAR_SOLVER_HPP
 
+#include "FORPFSSPSD/bounds.hpp"
 #include "FORPFSSPSD/module.hpp"
 #include "FORPFSSPSD/production_line.hpp"
 #include "production_line_solution.hpp"
+#include "utils/distributed_scheduler_history.hpp"
 
+#include <cstdint>
+#include <nlohmann/json.hpp>
+#include <vector>
 
 namespace algorithm {
 
 enum class BoundsSide { INPUT, OUTPUT, BOTH };
-
-struct ModuleBounds {
-    /// Intervals at the input boundary
-    FORPFSSPSD::IntervalSpec in;
-
-    /// Intervals at the output boundary
-    FORPFSSPSD::IntervalSpec out;
-
-    [[nodiscard]] bool operator==(const ModuleBounds &other) const {
-        return in == other.in && out == other.out;
-    }
-};
-
-using GlobalIntervals = std::unordered_map<FORPFSSPSD::ModuleId, ModuleBounds>;
 
 namespace BroadcastLineSolver {
 class ErrorStrings {
@@ -60,10 +51,10 @@ solve(FORPFSSPSD::ProductionLine &problemInstance, const commandLineArgs &args);
  * output intervals are returned. Otherwise only the specified side is returned.
  * @return ModuleIntervals object containing the intervals at the input and output boundary.
  */
-ModuleBounds getBounds(const FORPFSSPSD::Module &problemInstance,
-                              const PartialSolution &solutions,
-                              bool upperBound = false,
-                              BoundsSide intervalSide = BoundsSide::BOTH);
+FORPFSSPSD::ModuleBounds getBounds(const FORPFSSPSD::Module &problemInstance,
+                                   const PartialSolution &solutions,
+                                   bool upperBound = false,
+                                   BoundsSide intervalSide = BoundsSide::BOTH);
 
 /**
  * @brief Propagates the intervals between modules and checks if the problem changed.
@@ -73,11 +64,11 @@ ModuleBounds getBounds(const FORPFSSPSD::Module &problemInstance,
  * @param intervals
  */
 void propagateIntervals(FORPFSSPSD::ProductionLine &problemInstance,
-                               const GlobalIntervals &translatedIntervals);
+                        const FORPFSSPSD::GlobalBounds &translatedIntervals);
 
-std::tuple<GlobalIntervals, bool>
+std::tuple<FORPFSSPSD::GlobalBounds, bool>
 translateBounds(const FORPFSSPSD::ProductionLine &problemInstance,
-                const GlobalIntervals &intervals);
+                const FORPFSSPSD::GlobalBounds &intervals);
 
 /**
  * @brief Merges feasible solutions from each of the modules into a feasible global solution.
@@ -96,24 +87,15 @@ FMS::ProductionLineSolution mergeSolutions(const FORPFSSPSD::ProductionLine &pro
  * if one of them is not specified and the other is, returns true. This is different from what
  * std::optional does.
  *
- * @param boundsLeft Set of bounds to check
- * @param boundsRight Set of bounds to check
+ * @param boundsLeft Translated set of bounds from the sender module
+ * @param boundsRight Set of bounds from the receiver module
  * @return true The bounds from both sides are "similar" and convergence has been achieved.
  * @return false The bounds from both sides are different and convergence has not been achieved.
  */
-bool isConverged(const FORPFSSPSD::IntervalSpec &boundsLeft,
-                 const FORPFSSPSD::IntervalSpec &boundsRight);
+bool isConverged(const FORPFSSPSD::IntervalSpec &sender,
+                 const FORPFSSPSD::IntervalSpec &receiver);
 
-nlohmann::json boundsToJSON(const FORPFSSPSD::IntervalSpec &bounds);
-nlohmann::json boundsToJSON(const GlobalIntervals &globalBounds);
-nlohmann::json boundsToJSON(const std::vector<GlobalIntervals> &bounds);
-
-FORPFSSPSD::IntervalSpec moduleBoundsFromJSON(const nlohmann::json &json);
-GlobalIntervals globalBoundsFromJSON(const nlohmann::json &json);
-std::vector<GlobalIntervals> allGlobalBoundsFromJSON(const nlohmann::json &json);
-
-nlohmann::json baseResultData(const std::vector<FMS::ModulesSolutions> &solutions,
-                              const std::vector<GlobalIntervals> &bounds,
+nlohmann::json baseResultData(const FMS::DistributedSchedulerHistory &history,
                               const FORPFSSPSD::ProductionLine &problem,
                               std::uint64_t iterations);
 } // namespace BroadcastLineSolver

@@ -14,7 +14,6 @@
 #include "FORPFSSPSD/operation.h"
 #include "FORPFSSPSD/plexity.hpp"
 #include "delayGraph/delayGraph.h"
-#include "delayGraph/vertex.h"
 #include "partialsolution.h"
 #include "utils/commandLine.h"
 
@@ -163,7 +162,15 @@ public:
 
     [[nodiscard]] inline const auto &getJobsOutput() const { return m_jobsOutput; }
 
-    [[nodiscard]] inline const MachineFlowVector &getMachines() const { return m_machines; }
+    [[nodiscard]] inline auto getJobAtOutputPosition(std::size_t position) const {
+        return m_jobsOutput.at(position);
+    }
+
+    [[nodiscard]] inline std::size_t getJobOutputPosition(JobId jobId) const {
+        return m_jobToOutputPosition.at(jobId);
+    }
+
+    [[nodiscard]] inline const std::vector<MachineId> &getMachines() const { return m_machines; }
 
     [[nodiscard]] inline std::size_t getNumberOfMachines() const { return m_machines.size(); }
     [[nodiscard]] inline unsigned int getMaximumSheetSize() const { return m_maximumSheetSize; }
@@ -278,8 +285,6 @@ public:
 
     [[nodiscard]] PartialSolution loadSequence(std::istream &stream) const;
 
-    [[nodiscard]] std::tuple<std::vector<JobId>, JobOutMap> computeAllJobs() const;
-
     /**
      * @brief Returns the operations of every job in the order that they should be processed
      * 
@@ -386,8 +391,14 @@ private:
     /// Constraint-graph model of the current problem. It needs to be set by an external function.
     std::optional<DelayGraph::delayGraph> m_dg;
 
-    /// Vector of jobs in the order they should exit the plant
+    /// @brief Vector of jobs in the system
+    /// @details The order of the jobs is only relevant for fixed-output-order flow shops where
+    /// it indicates the output order of the jobs.
     std::vector<JobId> m_jobsOutput;
+
+    /// @brief Maps each job to its output position
+    /// @details The index can be used in @ref m_jobsOutput to obtain the job in the output order
+    std::unordered_map<JobId, std::size_t> m_jobToOutputPosition;
 
     /// Vector of operations in order that they should be processed. Only valid for flow shops
     OperationFlowVector m_flowVector;
@@ -407,7 +418,7 @@ private:
     std::vector<MachineId> m_reEntrantMachines;
 
     /// Contains the machines in order in which they appear in the flow vector
-    MachineFlowVector m_machines;
+    std::vector<MachineId> m_machines;
 
     /// Mapping between a machine and its order
     std::unordered_map<MachineId, std::size_t> m_machineToIndex;

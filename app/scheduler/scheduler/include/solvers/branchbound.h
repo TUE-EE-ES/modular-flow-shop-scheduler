@@ -3,6 +3,10 @@
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
 #include "FORPFSSPSD/indices.hpp"
+#include "delayGraph/delayGraph.h"
+
+#include <utility>
+#include <vector>
 
 class BranchBoundNode;
 

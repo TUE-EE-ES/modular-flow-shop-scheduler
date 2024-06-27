@@ -96,7 +96,7 @@ def add_arguments(parser: argparse.ArgumentParser):
         help="Algorithm used by the scheduler",
         action="extend",
         nargs="+",
-        choices=["bhcs", "mdbhcs", "backtrack", "sag"],
+        choices=["bhcs", "mdbhcs", "backtrack", "dd", "simple"],
     )
     parser.add_argument(
         "--modular-algorithm",

@@ -6,8 +6,6 @@
 #include "delayGraph/edge.h"
 #include "fmsschedulerexception.h"
 
-#include "pch/containers.hpp"
-
 #include <fmt/compile.h>
 
 namespace DelayGraph {

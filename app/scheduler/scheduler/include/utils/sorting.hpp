@@ -1,4 +1,9 @@
-#include "pch/containers.hpp"
+#ifndef UTILS_SORTING_HPP
+#define UTILS_SORTING_HPP
+
+#include <cstddef>
+#include <utility>
+#include <vector>
 
 namespace algorithm {
 // From: https://stackoverflow.com/a/17074810/4005637
@@ -25,3 +30,5 @@ void applyPermutationInPlace(RandomIt vecFirst, RandomIt vecLast, RandomItPermut
 }
 
 }; // namespace algorithm
+
+#endif // UTILS_SORTING_HPP

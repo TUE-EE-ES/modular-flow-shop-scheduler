@@ -1,4 +1,7 @@
+#include "pch/containers.hpp"
+
 #include "environmentalselectionoperator.h"
+
 #include <algorithm>
 
 EnvironmentalSelectionOperator::EnvironmentalSelectionOperator(const unsigned int intermediate_solutions)

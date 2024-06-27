@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <thread>
 #include <utils/time.h>
 
 using namespace FMS;

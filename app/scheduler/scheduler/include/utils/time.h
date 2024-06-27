@@ -1,6 +1,7 @@
 #ifndef UTILS_TIME_H
 #define UTILS_TIME_H
 
+#include <algorithm>
 #include <chrono>
 
 namespace FMS {

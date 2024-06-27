@@ -5,9 +5,8 @@
 #ifndef MATH_INTERVAL_HPP
 #define MATH_INTERVAL_HPP
 
-#include "pch/containers.hpp"
-
 #include <fmt/compile.h>
+#include <optional>
 #include <stdexcept>
 
 namespace Math {
@@ -22,7 +21,9 @@ template <typename T = int64_t> class Interval {
 public:
     using MaybeT = std::optional<T>;
 
-    Interval(MaybeT valueMin, MaybeT valueMax) : m_min(valueMin), m_max(valueMax) { checkMinMax(); }
+    constexpr Interval(MaybeT valueMin, MaybeT valueMax) : m_min(valueMin), m_max(valueMax) {
+        checkMinMax();
+    }
     ~Interval() = default;
 
     Interval(Interval &&other) noexcept = default;
@@ -30,10 +31,7 @@ public:
     Interval &operator=(const Interval &other) = default;
     Interval &operator=(Interval &&other) noexcept = default;
 
-    inline static const Interval<T>& Empty() {
-        static const Interval<T> empty(std::nullopt, std::nullopt);
-        return empty;
-    }
+    inline static constexpr Interval<T> Empty() { return {std::nullopt, std::nullopt}; }
 
     bool operator==(const Interval &other) const {
         return m_min == other.m_min && m_max == other.m_max;
@@ -152,8 +150,10 @@ public:
     }
 
     /**
-     * @brief Returns an interval that is a wider version of the current one and @p other . That is,
-     * it takes the maximum value among the upper bound and the minimum value among the lower bound.
+     * @brief Returns an interval that is a wider version of the current one and @p other . 
+     * 
+     * That is, it takes the maximum value among the upper bound and the minimum value among the 
+     * lower bound.
      *
      * @param other Other interval to compare to
      * @return Interval Externded interval
@@ -175,7 +175,9 @@ public:
 
     /**
      * @brief Returns an interval that is a shorter version of combining the current one and
-     * @p other. That is, it takes the minimum value among the upper bound and the maximum value
+     * @p other . 
+     * 
+     * That is, it takes the minimum value among the upper bound and the maximum value
      * among the lower bound.
      *
      * @param other
@@ -247,12 +249,27 @@ public:
                            m_max ? fmt::to_string(*m_max) : "+∞");
     }
 
-    [[nodiscard]] bool converged(const Interval &other) const {
-        if (m_min && other.m_min && m_min != other.m_min) {
+    /**
+     * @brief Checks if another interval has converged and doesn't get updated.
+     * 
+     * Checks if the @p receiver would get updated by the current interval. That is, if this 
+     * interval is @f$[a^{this}, b^{this}]@f$ and the receiver is 
+     * @f$[a^{receiver}, b^{receiver}]@f$, checks if
+     * 
+     * @f[
+     * a^{this} \le a^{receiver} \land b^{this} \ge b^{receiver}
+     * @f]
+     * 
+     * @param receiver 
+     * @return true 
+     * @return false 
+     */
+    [[nodiscard]] bool converged(const Interval &receiver) const {
+        if (m_min && receiver.m_min && m_min > receiver.m_min) {
             return false;
         }
 
-        if (m_max && other.m_max && m_max != other.m_max) {
+        if (m_max && receiver.m_max && m_max < receiver.m_max) {
             return false;
         }
 
@@ -262,7 +279,7 @@ public:
 private:
     MaybeT m_min, m_max;
 
-    void checkMinMax() {
+    constexpr void checkMinMax() {
         if (m_min && m_max && m_max < m_min) {
             throw std::domain_error("Value of min must be smaller than value of max");
         }

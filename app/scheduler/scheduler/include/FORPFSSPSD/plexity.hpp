@@ -1,7 +1,8 @@
 #ifndef PLEXITY_HPP
 #define PLEXITY_HPP
 
-#include "pch/containers.hpp"
+#include <cstdint>
+#include <string>
 
 namespace FORPFSSPSD {
 
@@ -29,9 +30,9 @@ public:
 
     operator bool() = delete;
 
-    [[nodiscard]] uint32_t numberOfOps() const;
+    [[nodiscard]] std::uint32_t numberOfOps() const;
 
-    [[nodiscard]] static uint32_t maxOps() { return 2; }
+    [[nodiscard]] static std::uint32_t maxOps() { return 2; }
 
 private:
     Value m_value;

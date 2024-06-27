@@ -3,15 +3,11 @@
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
 #include "FORPFSSPSD/indices.hpp"
-#include "FORPFSSPSD/module.hpp"
-#include "longest_path.h"
 #include "nofixedordersolution.h"
-
-#include "pch/containers.hpp"
 
 #include <cstdlib> /* srand, rand */
 #include <iostream>
-#include <memory>
+#include <vector>
 
 namespace algorithm {
 
@@ -47,7 +43,7 @@ class Mutator{
     return 0;
     }*/
 
-    typedef NoFixedOrderSolution(Mutator::*mutatorFunction)(); // typedef for better readability 
+    using mutatorFunction = NoFixedOrderSolution (Mutator::*)(); // typedef for better readability
 
     NoFixedOrderSolution mutate(){
         return input;

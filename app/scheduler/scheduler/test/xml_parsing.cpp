@@ -2,43 +2,54 @@
 
 #include <FORPFSSPSD/xmlParser.h>
 
+#include <array>
+
 using namespace FORPFSSPSD;
+
+// NOLINTBEGIN(*-magic-numbers)
 
 TEST(XML, Simple) {
     FORPFSSPSDXmlParser parser("simple/0.xml");
-    EXPECT_EQ(parser.getFileType(), FORPFSSPSDXmlParser::FileType::SHOP);
+    ASSERT_EQ(parser.getFileType(), FORPFSSPSDXmlParser::FileType::SHOP);
+
+    std::vector<operation> ops;
+    for (JobId j(0); j < JobId(5); ++j) {
+        for (OperationId o(0); o < OperationId(4); ++o) {
+            ops.emplace_back(j, o);
+        }
+    }
 
     const auto instance = parser.createFlowShop();
 
-    EXPECT_EQ(instance.getNumberOfJobs(), 5);
-    EXPECT_EQ(instance.jobs().size(), 5);
-    EXPECT_EQ(instance.getNumberOfOperationsPerJob(), 4);
-    
+    ASSERT_EQ(instance.getNumberOfJobs(), 5);
+    ASSERT_EQ(instance.jobs().size(), 5);
+    ASSERT_EQ(instance.getNumberOfOperationsPerJob(), 4);
+
     for (const auto &[job, ops] : instance.jobs()) {
-        EXPECT_EQ(ops.size(), 4);
+        ASSERT_EQ(ops.size(), 4);
     }
 
     for (const auto &[jobId, _] : instance.jobs()) {
-        EXPECT_EQ(instance.machineMapping().at({jobId, 0}), static_cast<MachineId>(0));
-        EXPECT_EQ(instance.machineMapping().at({jobId, 1}), static_cast<MachineId>(1));
-        EXPECT_EQ(instance.machineMapping().at({jobId, 2}), static_cast<MachineId>(1));
-        EXPECT_EQ(instance.machineMapping().at({jobId, 3}), static_cast<MachineId>(2));
+        EXPECT_EQ(instance.machineMapping().at(ops[0]), static_cast<MachineId>(0));
+        EXPECT_EQ(instance.machineMapping().at(ops[1]), static_cast<MachineId>(1));
+        EXPECT_EQ(instance.machineMapping().at(ops[2]), static_cast<MachineId>(1));
+        EXPECT_EQ(instance.machineMapping().at(ops[3]), static_cast<MachineId>(2));
     }
 
-    EXPECT_EQ(instance.processingTimes({0, 0}), 30);
-    EXPECT_EQ(instance.processingTimes({0, 1}), 30);
-    EXPECT_EQ(instance.processingTimes({1, 1}), 30);
-    EXPECT_EQ(instance.processingTimes({1, 2}), 30);
-    
-    EXPECT_EQ(instance.dueDatesIndep().getMaybe({0, 2}, {0, 1}), 1200);
+    EXPECT_EQ(instance.processingTimes(ops[0]), 30);
+    EXPECT_EQ(instance.processingTimes(ops[1]), 30);
+    EXPECT_EQ(instance.processingTimes(ops[5]), 30);
+    EXPECT_EQ(instance.processingTimes(ops[6]), 30);
 
-    EXPECT_EQ(instance.setupTimesIndep({0, 1}, {0, 2}), 70);
+    EXPECT_EQ(instance.dueDatesIndep().getMaybe(ops[2], ops[1]), 1200);
 
-    EXPECT_FALSE(instance.setupTimes().contains({0, 1}, {0, 2}));
-    EXPECT_FALSE(instance.setupTimes().contains({0, 1}, {1, 1}));
-    EXPECT_EQ(instance.setupTimes({0, 0}, {1, 0}), 20);
-    EXPECT_EQ(instance.setupTimes({0, 2}, {1, 2}), 20);
-    EXPECT_EQ(instance.setupTimes({0, 2}, {1, 1}), 100);
+    EXPECT_EQ(instance.setupTimesIndep(ops[1], ops[2]), 70);
+
+    EXPECT_FALSE(instance.setupTimes().contains(ops[1], ops[2]));
+    EXPECT_FALSE(instance.setupTimes().contains(ops[0], ops[1]));
+    EXPECT_EQ(instance.setupTimes(ops[0], ops[4]), 20);
+    EXPECT_EQ(instance.setupTimes(ops[2], ops[6]), 20);
+    EXPECT_EQ(instance.setupTimes(ops[2], ops[5]), 100);
     EXPECT_EQ(instance.setupTimes().getDefaultValue(), 20);
 }
 
@@ -48,28 +59,36 @@ TEST(XML, SimpleMultiPlexity) {
 
     const auto instance = parser.createFlowShop();
 
+    const std::array<operation, 7> ops{{{JobId(0), 0},
+                                        {JobId(0), 1},
+                                        {JobId(0), 2},
+                                        {JobId(0), 3},
+                                        {JobId(1), 0},
+                                        {JobId(1), 2},
+                                        {JobId(1), 3}}};
+
     EXPECT_EQ(instance.getNumberOfJobs(), 5);
     EXPECT_EQ(instance.jobs().size(), 5);
     EXPECT_EQ(instance.getNumberOfOperationsPerJob(), 4);
     
-    EXPECT_EQ(instance.jobs().at(0).size(), 4);
-    EXPECT_EQ(instance.jobs().at(1).size(), 3);
+    EXPECT_EQ(instance.jobs().at(JobId(0)).size(), 4);
+    EXPECT_EQ(instance.jobs().at(JobId(1)).size(), 3);
 
-    EXPECT_EQ(instance.machineMapping().at({0, 0}), static_cast<MachineId>(0));
-    EXPECT_EQ(instance.machineMapping().find({1, 1}), instance.machineMapping().end());
+    EXPECT_EQ(instance.machineMapping().at(ops[0]), static_cast<MachineId>(0));
+    EXPECT_EQ(instance.machineMapping().find({JobId(1), OperationId(1)}), instance.machineMapping().end());
 
-    EXPECT_EQ(instance.processingTimes({0, 0}), 30);
-    EXPECT_EQ(instance.processingTimes({0, 1}), 30);
-    EXPECT_EQ(instance.processingTimes({1, 2}), 30);
+    EXPECT_EQ(instance.processingTimes(ops[0]), 30);
+    EXPECT_EQ(instance.processingTimes(ops[1]), 30);
+    EXPECT_EQ(instance.processingTimes(ops[5]), 30);
     
-    EXPECT_EQ(instance.dueDatesIndep().getMaybe({0, 2}, {0, 1}), 1200);
+    EXPECT_EQ(instance.dueDatesIndep().getMaybe(ops[2], ops[1]), 1200);
 
-    EXPECT_EQ(instance.setupTimesIndep({0, 1}, {0, 2}), 70);
+    EXPECT_EQ(instance.setupTimesIndep(ops[1], ops[2]), 70);
 
-    EXPECT_FALSE(instance.setupTimes().contains({0, 0}, {0, 1}));
-    EXPECT_FALSE(instance.setupTimes().contains({0, 1}, {0, 2}));
-    EXPECT_EQ(instance.setupTimes({0, 0}, {1, 0}), 20);
-    EXPECT_EQ(instance.setupTimes({0, 2}, {1, 2}), 20);
+    EXPECT_FALSE(instance.setupTimes().contains(ops[0], ops[1]));
+    EXPECT_FALSE(instance.setupTimes().contains(ops[1], ops[2]));
+    EXPECT_EQ(instance.setupTimes(ops[0], ops[4]), 20);
+    EXPECT_EQ(instance.setupTimes(ops[2], ops[5]), 20);
     EXPECT_EQ(instance.setupTimes().getDefaultValue(), 0);
 }
 
@@ -151,7 +170,9 @@ TEST(XML, ProductionLineNonTerminating) {
 
     // Check that the "special" edge is there
     {
-        const auto value = module2.query({1, 0}, {2, 1});
+        const auto value = module2.query({JobId(1), OperationId(0)}, {JobId(2), OperationId(1)});
         EXPECT_EQ(value, 20);
     }
 }
+
+// NOLINTEND(*-magic-numbers)

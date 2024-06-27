@@ -14,7 +14,7 @@ class ModuleBoundsWidget : public QWidget {
 public:
     explicit ModuleBoundsWidget(FORPFSSPSD::ModuleId moduleId, QWidget *parent = nullptr);
 
-    inline void setBounds(std::vector<algorithm::ModuleBounds> bounds) {
+    inline void setBounds(std::vector<FORPFSSPSD::ModuleBounds> bounds) {
         m_model->setBounds(std::move(bounds));
     }
 

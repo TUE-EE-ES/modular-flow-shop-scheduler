@@ -1,7 +1,8 @@
+#include "pch/containers.hpp"
+
 #include "solvers/forwardheuristic.h"
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
-#include "delayGraph/builder.hpp"
 #include "delayGraph/delayGraph.h"
 #include "delayGraph/export_utilities.h"
 #include "longest_path.h"
@@ -13,7 +14,6 @@
 #include <fmt/compile.h>
 
 using namespace algorithm;
-using namespace std;
 using namespace FORPFSSPSD;
 using namespace DelayGraph;
 
@@ -21,19 +21,10 @@ PartialSolution ForwardHeuristic::solve(FORPFSSPSD::Instance &problemInstance, c
     // solve the instance
     LOG("Computation of the schedule started");
 
-    // make a copy of the delaygraph
-    if (!problemInstance.isGraphInitialized()) {
-        problemInstance.updateDelayGraph(Builder::FORPFSSPSD(problemInstance));
-    }
-    delayGraph dg = problemInstance.getDelayGraph();
-
-    if (args.verbose >= LOGGER_LEVEL::DEBUG) {
-        auto name = fmt::format("input_graph_{}.dot", problemInstance.getProblemName());
-        DelayGraph::export_utilities::saveAsDot(dg, name);
-    }
-
-    auto [result, ASAPST] = SolversUtils::checkSolutionAndOutputIfFails(problemInstance);
-    LOG(fmt::format("Number of vertices in the delay graph is {}", dg.get_number_of_vertices()));
+    auto ASAPST =
+            SolversUtils::initProblemGraph(problemInstance, args.verbose >= LOGGER_LEVEL::DEBUG);
+    auto dg = problemInstance.getDelayGraph();
+    LOG("Number of vertices in the delay graph is {}", dg.get_number_of_vertices());
 
     // We only support a single re-entrant machine in the system so choose the first one
     MachineId reentrant_machine = problemInstance.getReEntrantMachines().front();
@@ -218,7 +209,7 @@ ForwardHeuristic::evaluate_option_feasibility(delayGraph &dg,
                                               const option &options,
                                               const std::vector<delay> &ASAPTimes,
                                               MachineId reEntrantMachine){
-    vector<option> optionsvec{options};
+    std::vector<option> optionsvec{options};
     std::optional<std::pair<PartialSolution, option>> feasibleSolution;
     std::vector<std::pair<PartialSolution, option>> newGenerationOfSolutions = evaluate_option_feasibility(dg,problem,solution,optionsvec,ASAPTimes,reEntrantMachine);
     if (!newGenerationOfSolutions.empty()){
@@ -264,13 +255,14 @@ ForwardHeuristic::evaluate_option_feasibility(delayGraph &dg,
                         nextV.operation,
                         o.prevE.weight,
                         o.nextE.weight));
-        const JobId job_start = curV.operation.jobId;
+        const JobId jobStart = curV.operation.jobId;
 
-        VerticesCRef origin{dg.get_vertex(FORPFSSPSD::operation{0, 0})};
+        VerticesCRef origin{dg.get_vertex(FORPFSSPSD::operation{FS::JobId(0), 0})};
         VerticesCRef sourcevertices =
-                (job_start == 0) ? origin : dg.cget_vertices(std::max(job_start, 1U) - 1);
-        VerticesCRef windowvertices =
-                dg.cget_vertices(job_start, dg.get_vertex(o.nextE.dst).operation.jobId);
+                (jobStart == FS::JobId(0))
+                        ? origin
+                        : dg.cget_vertices(std::max(jobStart, FS::JobId(1U)) - 1);
+        VerticesCRef windowvertices =dg.cget_vertices(jobStart, dg.get_vertex(o.nextE.dst).operation.jobId);
 
         auto m = dg.get_maint_vertices();
         windowvertices.insert(windowvertices.end(), m.begin(), m.end());
@@ -406,7 +398,7 @@ LongestPathResult
 ForwardHeuristic::validateInterleaving(delayGraph &dg,
                                        const FORPFSSPSD::Instance &problem,
                                        const std::vector<DelayGraph::edge> &InputEdges,
-                                       vector<delay> &ASAPST,
+                                       std::vector<delay> &ASAPST,
                                        const DelayGraph::VerticesCRef &sources,
                                        const DelayGraph::VerticesCRef &window) {
     const auto& maintPolicy = problem.maintenancePolicy();
@@ -598,12 +590,12 @@ algorithm::ForwardHeuristic::getFeasibleOptions(delayGraph &dg,
     // update the ASAPTimes for the coming window, so that we have enough information to compute the
     // ranking
     const JobId job_start = eligibleOperation.operation.jobId;
-    vector<delay> ASAPTimes = solution.getASAPST();
+    std::vector<delay> ASAPTimes = solution.getASAPST();
 
     LongestPath::computeASAPST(
             dg,
             ASAPTimes,
-            dg.cget_vertices(max(job_start, 1U) - 1),
+            dg.cget_vertices(std::max(job_start, FS::JobId(1U)) - 1),
             dg.cget_vertices(job_start,
                             dg.get_vertex(lastPotentiallyFeasibleOption.dst).operation.jobId));
 

@@ -3,14 +3,14 @@
 
 #include "partialsolution.h"
 
-#include "pch/containers.hpp"
+#include <vector>
 
 class EnvironmentalSelectionOperator
 {
     unsigned int intermediate_solutions;
 public:
     explicit EnvironmentalSelectionOperator(unsigned int intermediate_solutions);
-    std::vector<PartialSolution> reduce(std::vector<PartialSolution> values) const;
+    [[nodiscard]] std::vector<PartialSolution> reduce(std::vector<PartialSolution> values) const;
 };
 
 #endif // ENVIRONMENTALSELECTIONOPERATOR_H

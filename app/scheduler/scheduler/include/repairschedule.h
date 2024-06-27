@@ -1,12 +1,14 @@
-//#ifndef MAINTENANCEHEURISTIC_H
-//#define MAINTENANCEHEURISTIC_H
+#ifndef REPAIRSCHEDULE_H
+#define REPAIRSCHEDULE_H
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
+#include "FORPFSSPSD/operation.h"
+#include "delayGraph/delayGraph.h"
 #include "longest_path.h"
+#include "partialsolution.h"
 
-#include "pch/containers.hpp"
-
-#include <memory>
+#include <cstddef>
+#include <vector>
 
 namespace algorithm {
 
@@ -64,4 +66,4 @@ public:
 };
 } // namespace algorithm
 
-//#endif // MAINTENANCEHEURISTIC_H
+#endif // REPAIRSCHEDULE_H

@@ -1,4 +1,4 @@
- /*@file
+/*@file
  * @author  Umar Waqas <u.waqas@tue.nl>
  * @version 0.1
  *
@@ -13,13 +13,16 @@
 #ifndef XML_PARSER_H_
 #define XML_PARSER_H_
 
+#include <memory>
 #include <rapidxml.hpp>
 #include <rapidxml_utils.hpp>
+#include <string>
+#include <string_view>
 
 /* @section DESCRIPTION
-* class xmlParser implements basic xml parsing.
-*/
-class xmlParser{
+ * class xmlParser implements basic xml parsing.
+ */
+class xmlParser {
 
 public:
     explicit xmlParser(std::string fname);
@@ -35,7 +38,7 @@ public:
     [[nodiscard]] rapidxml::xml_node<> *getFirstNode(const char *name) {
         return m_doc->first_node(name);
     }
-    friend std::ostream& operator<<(std::ostream &output, const xmlParser &p);
+    friend std::ostream &operator<<(std::ostream &output, const xmlParser &p);
 
     std::string_view getFileName() { return m_filename; }
 

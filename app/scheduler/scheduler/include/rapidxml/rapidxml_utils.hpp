@@ -9,9 +9,9 @@
 
 #include "rapidxml.hpp"
 
-#include "pch/containers.hpp"
-
+#include <cstddef>
 #include <fstream>
+#include <vector>
 
 namespace rapidxml
 {

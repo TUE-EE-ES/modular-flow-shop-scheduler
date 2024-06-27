@@ -1,14 +1,14 @@
+#include "pch/containers.hpp"
+
 #include "longest_path.h"
 
 #include "FORPFSSPSD/operation.h"
 #include "delay.h"
 #include "delayGraph/delayGraph.h"
 #include "delayGraph/edge.h"
-#include "negativecyclefinder.h"
 
 #include <fmt/ostream.h>
 #include <fstream>
-#include <iostream>
 #include <limits>
 #include <numeric>
 
@@ -20,7 +20,7 @@ namespace {
 template <typename T> FORPFSSPSD::JobId minJobId(T &&begin, T &&end) {
     return std::accumulate(begin,
                            end,
-                           std::numeric_limits<FORPFSSPSD::JobId>::max(),
+                           FORPFSSPSD::JobId::max(),
                            [](FORPFSSPSD::JobId minJobId, const vertex &v) {
                                return std::min(v.operation.jobId, minJobId);
                            });
@@ -367,11 +367,8 @@ algorithm::LongestPath::getPositiveCycle(const DelayGraph::delayGraph &dg) {
         }
     }
 
-    if (!lastModified.has_value()) {
-        return {};
-    }
-
-    // Now, follow the cycle for n iterations
+    // Now, follow the cycle for n iterations, if at some point lastModified is not set,
+    // then, there's no cycle.
     for (std::size_t i = 0; i < vertices.size(); i++) {
         if (!lastModified.has_value()) {
             return {};
@@ -388,17 +385,12 @@ algorithm::LongestPath::getPositiveCycle(const DelayGraph::delayGraph &dg) {
     bool first = true;
 
     for (VertexID v = vLast;; v = *previous[v]) {
-        if (first) {
-            // We don't want to add the last edge twice
-            first = false;
-        } else {
-            VertexID src = *previous[v];
-            cycle.emplace_back(src, v, dg.get_vertex(src).get_weight(v));
-        }
-
         if (v == vLast && cycle.size() > 1) {
             break;
         }
+
+        VertexID src = *previous[v];
+        cycle.emplace_back(src, v, dg.get_vertex(src).get_weight(v));
     }
 
     return cycle;

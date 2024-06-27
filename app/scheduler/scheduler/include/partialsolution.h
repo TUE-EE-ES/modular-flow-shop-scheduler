@@ -2,13 +2,15 @@
 #define PARTIALSOLUTION
 
 #include "FORPFSSPSD/indices.hpp"
-#include "delayGraph/edge.h"
+#include "delayGraph/delayGraph.h"
 #include "schedulingoption.h"
-
-#include "pch/containers.hpp"
 
 #include <fmt/compile.h>
 #include <utility>
+
+namespace FORPFSSPSD {
+    class Instance;
+} // namespace FORPFSSPSD
 
 class PartialSolution {
     public:
@@ -152,6 +154,8 @@ class PartialSolution {
     [[nodiscard]] delay getEarliestStartFutureOperation() const {
         return earliestStartFutureOperation;
     }
+
+    [[nodiscard]] delay getRealMakespan(const FORPFSSPSD::Instance &problem) const;
 };
 
 std::string chosenEdgesToString(const PartialSolution &solution, const DelayGraph::delayGraph &dg);

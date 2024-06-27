@@ -14,57 +14,18 @@
 
 using namespace algorithm;
 using namespace algorithm::BroadcastLineSolver;
-namespace FS = FORPFSSPSD;
-
-namespace {
-
-void historyAddEmpty(std::vector<FMS::ModulesSolutions> &allResults,
-                     std::vector<GlobalIntervals> &allBounds,
-                     const ModularArgs &argsMod) {
-    if (argsMod.storeSequence) {
-        allResults.emplace_back();
-    }
-
-    if (argsMod.storeBounds) {
-        allBounds.emplace_back();
-    }
-}
-
-std::tuple<std::vector<FMS::ModulesSolutions>, std::vector<GlobalIntervals>>
-baseHistory(const ModularArgs &argsMod) {
-    std::vector<FMS::ModulesSolutions> allResults;
-    std::vector<GlobalIntervals> allBounds;
-    historyAddEmpty(allResults, allBounds, argsMod);
-    return {std::move(allResults), std::move(allBounds)};
-}
-
-void historyAddModule(std::vector<FMS::ModulesSolutions> &allResults,
-                      std::vector<GlobalIntervals> &allBounds,
-                      const ModularArgs &argsMod,
-                      const FS::ModuleId moduleId,
-                      const ModuleBounds &bounds,
-                      const PartialSolution &modResult) {
-    if (argsMod.storeSequence) {
-        allResults.back().emplace(moduleId, modResult);
-    }
-
-    if (argsMod.storeBounds) {
-        allBounds.back().emplace(moduleId, bounds);
-    }
-}
-
-} // namespace
 
 CocktailLineSolver::SingleIterationResult
 CocktailLineSolver::singleIteration(FS::ProductionLine &instance,
                                     const commandLineArgs &args,
                                     const uint64_t iterations,
                                     const bool convergedLowerBound,
-                                    const ModularArgs &argsMod) {
+                                    const ModularArgs &argsMod,
+                                    FMS::DistributedSchedulerHistory &history) {
     FS::ModuleId moduleId = instance.getFirstModuleId();
-    ModuleBounds bounds;
+    FS::ModuleBounds bounds;
     FMS::ModulesSolutions moduleResults;
-    auto [allResults, allBounds] = baseHistory(argsMod);
+    history.newIteration();
 
     bool first = true;
     bool canContinue = true;
@@ -100,23 +61,17 @@ CocktailLineSolver::singleIteration(FS::ProductionLine &instance,
                 module.addOutputBounds(bounds.out);
             }
 
-            historyAddModule(allResults, allBounds, argsMod, currentModuleId, bounds, modResult);
-
+            history.addModule(currentModuleId, bounds, modResult);
             if (!canContinue) {
                 moduleResults.emplace(moduleId, std::move(modResult));
             }
         } catch (FmsSchedulerException &e) {
             LOG_E("Cocktail: Exception while running algorithm: {}", e.what());
-            return {{},
-                    false,
-                    ErrorStrings::kLocalScheduler,
-                    std::move(allResults),
-                    std::move(allBounds)};
+            return {{}, false, ErrorStrings::kLocalScheduler};
         }
     }
 
-    historyAddEmpty(allResults, allBounds, argsMod);
-
+    history.newIteration();
     first = true;
     canContinue = true;
     bool converged = true;
@@ -141,6 +96,7 @@ CocktailLineSolver::singleIteration(FS::ProductionLine &instance,
 
         // Add output intervals from previous iteration
         auto translated = instance.toOutputBounds(module, bounds.in);
+        auto oldBoundsIn = std::move(bounds.in);
         module.addOutputBounds(translated);
 
         try {
@@ -156,28 +112,32 @@ CocktailLineSolver::singleIteration(FS::ProductionLine &instance,
                 module.addOutputBounds(bounds.out);
             }
 
-            historyAddModule(allResults, allBounds, argsMod, currentModuleId, bounds, modResult);
+            history.addModule(currentModuleId, bounds, modResult);
 
-            // If the result of applying the intervals and rescheduling still provides the same
-            // bounds then this means that convergence has been reached.
-            converged &= isConverged(translated, bounds.out);
+
+            // While we are iterating backwards, (e.g., n <- n_{i-1}), we are sending the bounds
+            // forward (e.g., n_{i} sends to n_{i+1}). We can detect convergence by checking that 
+            // the bounds that we are sending forwards will not cause module n_{i+1} to update
+            // its local problem. It won't cause an update if the bounds that we are sending
+            // are "weaker" than the bounds that module n_{i+1} already sent to module n_{i}.
+            // If this is true for all iterations backwards, then we can stop the iterations.
+            const auto &moduleNext = instance.getNextModule(module);
+            auto translatedBack = instance.toInputBounds(moduleNext, bounds.out);
+            converged &= isConverged(translatedBack, oldBoundsIn);
+
             moduleResults.emplace(currentModuleId, std::move(modResult));
         } catch (FmsSchedulerException &e) {
             LOG_E("Cocktail: Exception while running algorithm: {}", e.what());
-            return {{},
-                    false,
-                    ErrorStrings::kLocalScheduler,
-                    std::move(allResults),
-                    std::move(allBounds)};
+            return {{}, false, ErrorStrings::kLocalScheduler};
         }
     }
 
     if (argsMod.timer.isTimeUp()) {
         LOG_W("Cocktail: Time limit reached");
-        return {{}, false, ErrorStrings::kTimeOut, std::move(allResults), std::move(allBounds)};
+        return {{}, false, ErrorStrings::kTimeOut};
     }
 
-    return {std::move(moduleResults), converged, "", std::move(allResults), std::move(allBounds)};
+    return {std::move(moduleResults), converged, ""};
 }
 
 std::tuple<std::vector<FMS::ProductionLineSolution>, nlohmann::json>
@@ -187,8 +147,6 @@ CocktailLineSolver::solve(FS::ProductionLine &problemInstance, const commandLine
 
     auto &modules = problemInstance.modules();
     bool convergedLowerBound = false;
-    std::vector<GlobalIntervals> allBounds;                // To store the bounds history
-    std::vector<FMS::ModulesSolutions> allSolutions;       // To store the solutions history
 
     // Generate the delay graphs of each module
     for (auto &[moduleId, module] : modules) {
@@ -197,13 +155,11 @@ CocktailLineSolver::solve(FS::ProductionLine &problemInstance, const commandLine
 
     FS::ModuleId moduleId = problemInstance.getFirstModuleId();
     std::string globalErrorStr;
+    FMS::DistributedSchedulerHistory history(argsMod.storeSequence, argsMod.storeBounds);
 
     while (iterations < args.maxIterations && argsMod.timer.isRunning() && globalErrorStr.empty()) {
-        auto [moduleResults, converged, errorStr, iterationResults, iterationBounds] =
-                singleIteration(problemInstance, args, iterations, convergedLowerBound, argsMod);
-
-        allBounds.insert(allBounds.end(), iterationBounds.begin(), iterationBounds.end());
-        allSolutions.insert(allSolutions.end(), iterationResults.begin(), iterationResults.end());
+        auto [moduleResults, converged, errorStr] =
+                singleIteration(problemInstance, args, iterations, convergedLowerBound, argsMod, history);
 
         if (!errorStr.empty()) {
             globalErrorStr = std::move(errorStr);
@@ -212,14 +168,14 @@ CocktailLineSolver::solve(FS::ProductionLine &problemInstance, const commandLine
 
         if (converged && convergedLowerBound) {
             return {{mergeSolutions(problemInstance, moduleResults)},
-                    baseResultData(allSolutions, allBounds, problemInstance, iterations)};
+                    baseResultData(history, problemInstance, iterations)};
         }
 
         convergedLowerBound |= converged;
         ++iterations;
     }
 
-    auto data = baseResultData(allSolutions, allBounds, problemInstance, iterations);
+    auto data = baseResultData(history, problemInstance, iterations);
     data["timeout"] = argsMod.timer.isTimeUp();
     if (!globalErrorStr.empty()) {
         data["error"] = globalErrorStr;

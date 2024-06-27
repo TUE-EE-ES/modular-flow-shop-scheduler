@@ -6,7 +6,10 @@
 #include "delay.h"
 #include "utils/default_map.hpp"
 
-#include "pch/containers.hpp"
+#include <map>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 namespace FORPFSSPSD {
 // inner types for temporary storage and mappings
@@ -33,9 +36,6 @@ using PlexityTable = std::unordered_map<JobId, std::vector<ReEntrancies>>;
 
 /// Flow of operations in the flow-shop
 using OperationFlowVector = std::vector<OperationId>;
-
-/// Flow of machines in the flow-shop
-using MachineFlowVector = std::vector<MachineId>;
 
 /// Flow of operations per machine in the flow-shop
 using MachineMapOperationFlowVector = std::unordered_map<MachineId, OperationFlowVector>;

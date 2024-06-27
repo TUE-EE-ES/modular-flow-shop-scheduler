@@ -1,3 +1,5 @@
+#include "pch/containers.hpp"
+
 #include "solvers/dd.hpp"
 
 #include "DD/comparator.hpp"
@@ -26,7 +28,13 @@ static constexpr float kDefaultRankFactor = 0.8;
 namespace {
 
 template <typename T>
-auto initialize(const commandLineArgs &args, FORPFSSPSD::Instance &problemInstance) {
+DDSolver::DDSolverDataPtr<T> initialize(const commandLineArgs &args,
+                                        FORPFSSPSD::Instance &problemInstance,
+                                        DDSolver::DDSolverDataPtr<T> oldData) {
+    if (oldData != nullptr) {
+        return std::move(oldData);
+    }
+
     DD::DDSolution solution(FMS::getCpuTime(), kDefaultRankFactor, problemInstance.getTotalOps());
 
     // Generate the base graph
@@ -96,33 +104,51 @@ auto initialize(const commandLineArgs &args, FORPFSSPSD::Instance &problemInstan
     // add root to queue
     DDSolver::push(states, args.explorationType, root, solution, true);
 
-    return std::make_tuple(std::move(states),
-                           std::move(solution),
-                           std::move(dg),
-                           keepActiveVerticesSparse,
-                           vertexId);
+    return std::make_unique<DDSolver::DDSolverData<T>>(std::move(states),
+                                                       std::move(solution),
+                                                       std::move(dg),
+                                                       keepActiveVerticesSparse,
+                                                       vertexId);
 }
 
-inline bool shouldStop(const auto &states,
-                       const DD::DDSolution &solution,
+template <typename T>
+inline bool shouldStop(const DDSolver::DDSolverData<T> &data,
                        const commandLineArgs &args,
                        const std::size_t iterations) {
-    return states.empty() || (FMS::getCpuTime() - solution.start()) >= args.timeOut
+    return data.states.empty() || (FMS::getCpuTime() - data.solution.start()) >= args.timeOut
            || iterations >= args.maxIterations;
 }
+
+template <typename T> void updateBounds(DDSolver::DDSolverData<T> &data) {
+    auto bestLowerBoundElement = std::min_element(
+            data.states.begin(), data.states.end(), DD::CompareVerticesLowerBoundMin());
+    auto minLowerBound = bestLowerBoundElement == data.states.end()
+                                 ? data.solution.bestUpperBound()
+                                 : std::min((*bestLowerBoundElement)->lowerBound(),
+                                            data.solution.bestUpperBound());
+    LOG_D("Lower is {} and upper is {}", minLowerBound, data.solution.bestUpperBound());
+    data.solution.setBestLowerBound(minLowerBound);
+}
+
 } // namespace
 
 std::tuple<Solutions, nlohmann::json> DDSolver::solve(FORPFSSPSD::Instance &problemInstance,
                                                       const commandLineArgs &args) {
     switch (args.explorationType) {
     case DDExplorationType::BREADTH:
-    case DDExplorationType::DEPTH:
-        return DDSolver::solveWrap<std::deque<SharedVertex>>(problemInstance, args);
+    case DDExplorationType::DEPTH: {
+        auto [solutions, dataJSON, _] =
+                DDSolver::solveWrap<std::deque<SharedVertex>>(problemInstance, args, nullptr);
+        return {std::move(solutions), std::move(dataJSON)};
+    }
 
     case DDExplorationType::BEST:
     case DDExplorationType::STATIC:
-    case DDExplorationType::ADAPTIVE:
-        return DDSolver::solveWrap<std::vector<SharedVertex>>(problemInstance, args);
+    case DDExplorationType::ADAPTIVE: {
+        auto [solutions, dataJSON, _] =
+                DDSolver::solveWrap<std::vector<SharedVertex>>(problemInstance, args, nullptr);
+        return {std::move(solutions), std::move(dataJSON)};
+    }
 
     default:
         throw std::runtime_error("FmsScheduler::unknown graph exploration heuristic supplied");
@@ -130,13 +156,13 @@ std::tuple<Solutions, nlohmann::json> DDSolver::solve(FORPFSSPSD::Instance &prob
 }
 
 template <typename T>
-std::tuple<Solutions, nlohmann::json> DDSolver::solveWrap(FORPFSSPSD::Instance &problemInstance,
-                                                          const commandLineArgs &args) {
+ResumableSolverOutput DDSolver::solveWrap(FORPFSSPSD::Instance &problemInstance,
+                                          const commandLineArgs &args,
+                                          DDSolverDataPtr<T> oldData) {
 
     LOG("Computation of the schedule using DD started");
 
-    auto [states, solution, dg, keepActiveVerticesSparse, vertexId] =
-            ::initialize<T>(args, problemInstance);
+    auto data = ::initialize<T>(args, problemInstance, std::move(oldData));
 
     // To check for possible merging we keep track the current "active" vertices in a searchable
     // data structure. The active vertices are the ones still inside the queue. The weak_ptr
@@ -146,33 +172,33 @@ std::tuple<Solutions, nlohmann::json> DDSolver::solveWrap(FORPFSSPSD::Instance &
     // Count iterations
     std::uint32_t iterations = 0;
 
-    while (!shouldStop(states, solution, args, iterations)) {
+    while (!shouldStop(*data, args, iterations)) {
 
-        SharedVertex s = pop(states, args.explorationType, solution);
+        SharedVertex s = pop(*data, args.explorationType);
 
         const auto &sMachineEdges = s->getMachineEdges();
         const auto &sLastOperation = s->getLastOperation();
         const auto currentDepth = s->vertexDepth();
 
         // The vertex becomes inactive after expansion so we remove it
-        if (keepActiveVerticesSparse) {
+        if (data->keepActiveVerticesSparse) {
             removeActiveVertex(activeVertices, *s);
         }
 
         if (isTerminal(*s, problemInstance)) {
             // if terminal we should update upper bound and add state to another queue otherwise we
             // lose it
-            solution.addNewSolution(*s);
-            if (solution.isOptimal()) {
+            data->solution.addNewSolution(*s);
+            if (data->solution.isOptimal()) {
                 LOG("Solution is optimal");
                 break;
             }
             continue;
         }
-        const auto addedEdges = dg.add_edges(s->getAllEdges());
+        const auto addedEdges = data->dg.add_edges(s->getAllEdges());
 
         LOG("Expanding state");
-        auto expandedStates = expandVertex(vertexId, *s, dg, problemInstance);
+        auto expandedStates = expandVertex(*data, *s, problemInstance);
 
         // For each ready operation(s), attempt to schedule and extend to a new state
         // If dominated, discard
@@ -185,56 +211,51 @@ std::tuple<Solutions, nlohmann::json> DDSolver::solveWrap(FORPFSSPSD::Instance &
             // otherwise findandmerge could add a vertex to active vertices and it ends up discarded
             // causing a pointer error.
 
-            if (newState->lowerBound() > solution.bestUpperBound()) {
+            if (newState->lowerBound() > data->solution.bestUpperBound()) {
                 continue;
             }
             if (findVertexDominance(activeVertices, newState, problemInstance)) {
                 continue;
             }
 
-            push(states, args.explorationType, newState, solution, false);
+            push(*data, args.explorationType, newState, false);
         }
 
         // update best lower bound
-        auto bestLowerBoundElement =
-                std::min_element(states.begin(), states.end(), DD::CompareVerticesLowerBoundMin());
-        auto minLowerBound = bestLowerBoundElement == states.end()
-                                     ? solution.bestUpperBound()
-                                     : std::min((*bestLowerBoundElement)->lowerBound(),
-                                                solution.bestUpperBound());
-        LOG_D("Lower is {} and upper is {}", minLowerBound, solution.bestUpperBound());
-        solution.setBestLowerBound(minLowerBound);
+        ::updateBounds(*data);
 
         // Remove the edges that were added
-        dg.remove_edges(addedEdges);
+        data->dg.remove_edges(addedEdges);
 
-        LOG_D("Queue is {} elements long", states.size());
+        LOG_D("Queue is {} elements long", data->states.size());
 
-        if (solution.isOptimal()) {
+        if (data->solution.isOptimal()) {
             LOG("Solution is optimal");
             break;
         }
 
-        if (states.empty()) {
+        if (data->states.empty()) {
             LOG("States is empty");
         }
         iterations++;
     }
 
-    auto data = solution.getSolveData();
+    auto dataJSON = data->solution.getSolveData();
 
     // Find termination reason
-    if (solution.isOptimal()) {
-        data["terminationReason"] = TerminationStrings::kOptimal;
-    } else if (states.empty()) {
-        data["terminationReason"] = TerminationStrings::kNoSolution;
+    if (data->solution.isOptimal()) {
+        dataJSON["terminationReason"] = TerminationStrings::kOptimal;
+    } else if (data->states.empty()) {
+        dataJSON["terminationReason"] = TerminationStrings::kNoSolution;
     } else {
-        data["terminationReason"] = TerminationStrings::kTimeOut;
+        dataJSON["terminationReason"] = TerminationStrings::kTimeOut;
         // The other two reasons already print a message inside the loop
         LOG("DD: Time out");
     }
 
-    return {DDSolver::extractSolutions(solution.getStatesTerminated()), std::move(data)};
+    return {DDSolver::extractSolutions(data->solution.getStatesTerminated()),
+            std::move(dataJSON),
+            std::move(data)};
 }
 
 PartialSolution algorithm::DDSolver::getSeedSolution(FORPFSSPSD::Instance &problemInstance,
@@ -276,7 +297,7 @@ void DDSolver::initialiseStates(const FORPFSSPSD::Instance &problemInstance,
                                 DelayGraph::delayGraph &dg,
                                 PartialSolution seedSolution,
                                 std::uint64_t &vertexId,
-                                DDSolver::SharedVertex &oldVertex,
+                                DD::SharedVertex &oldVertex,
                                 DD::DDSolution &solution) {
     const auto &seedSolutionEdges = seedSolution.getChosenEdgesPerMachine();
 
@@ -316,7 +337,7 @@ void DDSolver::createSeedSolutionStates(
         DelayGraph::delayGraph &dg,
         const std::unordered_map<FORPFSSPSD::MachineId, DelayGraph::Edges> &seedSolutionEdges,
         std::uint64_t &vertexId,
-        DDSolver::SharedVertex oldVertex,
+        DD::SharedVertex oldVertex,
         const DD::DDSolution &solution,
         const std::vector<FORPFSSPSD::MachineId> &machineOrder) {
     DelayGraph::Edges stateEdges = oldVertex->getAllEdges();
@@ -382,7 +403,7 @@ void DDSolver::createSeedSolutionStates(const FORPFSSPSD::Instance &problemInsta
                                         const commandLineArgs &args,
                                         DelayGraph::delayGraph &dg,
                                         std::uint64_t &vertexId,
-                                        DDSolver::SharedVertex oldVertex,
+                                        DD::SharedVertex oldVertex,
                                         DD::DDSolution &solution,
                                         std::vector<FORPFSSPSD::JobId> &jobOrder) {
     DelayGraph::Edges stateEdges;
@@ -512,16 +533,15 @@ DelayGraph::Edges algorithm::DDSolver::inferEdges(const DD::Vertex &s,
     return inferredEdges;
 }
 
-algorithm::DDSolver::SharedVertex
-algorithm::DDSolver::createNewVertex(std::uint64_t &vertexId,
-                                     const DD::Vertex &oldVertex,
-                                     const FORPFSSPSD::Instance &problemInstance,
-                                     const DelayGraph::VerticesIDs &vOps,
-                                     const std::vector<FORPFSSPSD::operation> &ops,
-                                     PathTimes ASAPST,
-                                     PathTimes ALAPST,
-                                     DelayGraph::Edges edges,
-                                     const bool graphIsRelaxed) {
+DD::SharedVertex algorithm::DDSolver::createNewVertex(std::uint64_t &vertexId,
+                                                      const DD::Vertex &oldVertex,
+                                                      const FORPFSSPSD::Instance &problemInstance,
+                                                      const DelayGraph::VerticesIDs &vOps,
+                                                      const std::vector<FORPFSSPSD::operation> &ops,
+                                                      PathTimes ASAPST,
+                                                      PathTimes ALAPST,
+                                                      DelayGraph::Edges edges,
+                                                      const bool graphIsRelaxed) {
 
     auto newJobOrder = oldVertex.getJobOrder();
     auto newJobsCompletion = oldVertex.getJobsCompletion();
@@ -532,10 +552,12 @@ algorithm::DDSolver::createNewVertex(std::uint64_t &vertexId,
     for (std::size_t i = 0; i < ops.size(); i++) {
         const auto &op = ops[i];
         const auto &mId = problemInstance.getMachine(op);
-        newJobsCompletion[op.jobId] += 1;
         newMachineEdges[mId].push_back(edges[i]);
         newScheduledOps.push_back(vOps[i]);
         newLastOperation[mId] = vOps[i];
+
+        const auto jobOutOrder = problemInstance.getJobOutputPosition(op.jobId);
+        newJobsCompletion[jobOutOrder] += 1;
 
         if (op.operationId <= 0) {
             // first operation
@@ -561,31 +583,30 @@ algorithm::DDSolver::createNewVertex(std::uint64_t &vertexId,
     return newVertex;
 }
 
-std::vector<SharedVertex>
-algorithm::DDSolver::expandVertex(std::uint64_t &vertexId,
-                                  const DD::Vertex &state,
-                                  DelayGraph::delayGraph &dg,
-                                  const FORPFSSPSD::Instance &problemInstance) {
+std::vector<SharedVertex> algorithm::DDSolver::expandVertex(
+        auto &data, const DD::Vertex &state, const FORPFSSPSD::Instance &problemInstance) {
     std::vector<SharedVertex> expandedStates;
 
     for (const auto &[jId, ops] : state.readyOps()) {
-        auto [newEdges, readyVIDs] = createSchedulingOptionEdges(problemInstance, dg, state, ops);
+        auto [newEdges, readyVIDs] =
+                createSchedulingOptionEdges(problemInstance, data.dg, state, ops);
 
         auto newASAPST = state.getASAPST();
         auto newALAPST = state.getALAPST();
 
-        auto inferredEdges = DDSolver::inferEdges(state, problemInstance, dg);
+        auto inferredEdges = DDSolver::inferEdges(state, problemInstance, data.dg);
         inferredEdges.insert(inferredEdges.end(), newEdges.begin(), newEdges.end());
 
         // Check if updating the path with a new edge is feasible while also inferring lower bound
-        if (!algorithm::LongestPath::addEdgesSuccessful(dg, inferredEdges, newASAPST)) {
-            LOG_T("welp, infeasible {} \n", vertexId);
+        if (!algorithm::LongestPath::addEdgesSuccessful(data.dg, inferredEdges, newASAPST)) {
+            LOG_T("welp, infeasible {} \n", data.vertexId);
             continue;
         }
 
-        DDSolver::updateVertexALAPST(newASAPST, newALAPST, dg, state.scheduledOps(), newEdges, ops);
+        DDSolver::updateVertexALAPST(
+                newASAPST, newALAPST, data.dg, state.scheduledOps(), newEdges, ops);
 
-        auto newState = DDSolver::createNewVertex(vertexId,
+        auto newState = DDSolver::createNewVertex(data.vertexId,
                                                   state,
                                                   problemInstance,
                                                   readyVIDs,
@@ -729,8 +750,7 @@ bool algorithm::DDSolver::isTerminal(const DD::Vertex &vertex,
     const auto &jobsOutput = instance.getJobsOutput();
     const auto &jobsCompletion = vertex.getJobsCompletion();
     for (std::size_t i = 0; i < jobsOutput.size(); ++i) {
-        const auto &jobOps = instance.jobs(jobsOutput[i]);
-        if (jobsCompletion[i] < jobOps.size()) {
+        if (jobsCompletion[i] < instance.jobs(jobsOutput[i]).size()) {
             return false;
         }
     }
@@ -798,8 +818,7 @@ template <class V> void DDSolver::orderQueue(std::vector<SharedVertex> &states, 
     std::make_heap(states.begin(), states.end(), comparator);
 }
 
-template <typename T>
-void DDSolver::push(T &states,
+void DDSolver::push(auto &states,
                     DDExplorationType explorationType,
                     SharedVertex &newVertex,
                     const DD::DDSolution &solution,
@@ -834,16 +853,16 @@ void DDSolver::push(T &states,
 }
 
 template <typename T>
-SharedVertex DDSolver::pop(T &states, DDExplorationType explorationType, DD::DDSolution &solution) {
+SharedVertex DDSolver::pop(DDSolverData<T> &data, DDExplorationType explorationType) {
     switch (explorationType) {
     case DDExplorationType::DEPTH:
     case DDExplorationType::BREADTH:
-        return popQueue(states);
+        return popQueue(data.states);
     case DDExplorationType::BEST:
-        return popQueue(states, DD::CompareVerticesLowerBound());
+        return popQueue(data.states, DD::CompareVerticesLowerBound());
     case DDExplorationType::STATIC:
     case DDExplorationType::ADAPTIVE:
-        return popQueue(states, DD::CompareVerticesRanking(solution));
+        return popQueue(data.states, DD::CompareVerticesRanking(data.solution));
     default:
         throw std::runtime_error("FmsScheduler::unknown graph exploration heuristic supplied -- "
                                  "only depth and static currently accepted for DD seed scheduler");
@@ -874,12 +893,11 @@ void DDSolver::mergeLoop(T &states,
     }
 }
 
-algorithm::DDSolver::SharedVertex
-DDSolver::mergeOperator(const DD::Vertex &a,
-                        const DD::Vertex &b,
-                        std::uint64_t &vertexId,
-                        const FORPFSSPSD::Instance &problemInstance,
-                        const DelayGraph::delayGraph &dg) {
+DD::SharedVertex DDSolver::mergeOperator(const DD::Vertex &a,
+                                         const DD::Vertex &b,
+                                         std::uint64_t &vertexId,
+                                         const FORPFSSPSD::Instance &problemInstance,
+                                         const DelayGraph::delayGraph &dg) {
 
     algorithm::PathTimes mergedASAPST;
     auto aASAPST = a.getASAPST();
@@ -972,4 +990,32 @@ std::uint32_t algorithm::DDSolver::chooseVertexToMerge(std::uint32_t size) {
     // chooses randomly for now
     // other heuristics should be tried out
     return rand() % size;
+}
+
+algorithm::ResumableSolverOutput
+algorithm::DDSolver::solveResumable(FORPFSSPSD::Instance &problemInstance,
+                                    FORPFSSPSD::ProblemUpdate problemUpdate,
+                                    const commandLineArgs &args,
+                                    FMS::SolverDataPtr solverData) {
+
+    switch (args.explorationType) {
+    case DDExplorationType::BREADTH:
+    case DDExplorationType::DEPTH: {
+        using T = std::deque<SharedVertex>;
+        auto dataPtr = FMS::dynamic_unique_ptr_cast<DDSolverData<T>>(std::move(solverData));
+        // TODO: update problem
+        return solveWrap<T>(problemInstance, args, std::move(dataPtr));
+    }
+
+    case DDExplorationType::BEST:
+    case DDExplorationType::STATIC:
+    case DDExplorationType::ADAPTIVE: {
+        using T = std::vector<SharedVertex>;
+        auto dataPtr = FMS::dynamic_unique_ptr_cast<DDSolverData<T>>(std::move(solverData));
+        // TODO: update problem
+        return solveWrap<T>(problemInstance, args, std::move(dataPtr));
+    }
+    default:
+        throw std::runtime_error("FmsScheduler::unknown graph exploration heuristic supplied");
+    }
 }

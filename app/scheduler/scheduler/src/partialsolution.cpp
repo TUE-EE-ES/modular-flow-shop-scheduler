@@ -1,6 +1,9 @@
+#include "pch/containers.hpp"
+#include "pch/utils.hpp"
+
 #include "partialsolution.h"
 
-#include "pch/utils.hpp"
+#include "FORPFSSPSD/FORPFSSPSD.h"
 
 #include <fmt/ostream.h>
 #include <ranges>
@@ -142,4 +145,13 @@ PartialSolution PartialSolution::remove(FORPFSSPSD::MachineId machineId,
 DelayGraph::Edges PartialSolution::getAllChosenEdges() const {
     auto view = m_chosenEdges | std::views::values | std::views::join;
     return {view.begin(), view.end()};
+}
+
+delay PartialSolution::getRealMakespan(const FORPFSSPSD::Instance& problem) const {
+    // Find the last operation in the system
+    const auto jobLast = problem.getJobsOutput().back();
+    const auto lastOp = problem.jobs(jobLast).back();
+
+    const auto vId = problem.getDelayGraph().get_vertex(lastOp).id;
+    return ASAPST.at(vId) + problem.processingTimes(lastOp);
 }

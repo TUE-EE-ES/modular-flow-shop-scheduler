@@ -16,10 +16,12 @@
 #include "FORPFSSPSD.h"
 #include "FORPFSSPSD/indices.hpp"
 #include "FORPFSSPSD/production_line.hpp"
-#include "rapidxml.hpp"
 #include "utils/commandLine.h"
 #include "utils/default_map.hpp"
 #include "utils/xmlParser.h"
+
+#include <rapidxml.hpp>
+#include <string_view>
 
 class SingleFlowShopParser {
 public:

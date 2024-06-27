@@ -1,0 +1,118 @@
+<SPInstance type="Modular">
+  <SPInstance type="FORPFSSPSD" id="0" >
+    <jobs count="3">
+      <operations count="4"/>
+    </jobs>
+    <flowVector>
+      <component job="0" index="0" value="0"/>
+      <component job="0" index="1" value="1"/>
+      <component job="0" index="2" value="1"/>
+      <component job="0" index="3" value="2"/>
+      <component job="1" index="0" value="0"/>
+      <component job="1" index="1" value="1"/>
+      <component job="1" index="2" value="1"/>
+      <component job="1" index="3" value="2"/>
+      <component job="2" index="0" value="0"/>
+      <component job="2" index="1" value="1"/>
+      <component job="2" index="2" value="1"/>
+      <component job="2" index="3" value="2"/>
+    </flowVector>
+    <processingTimes default="0">
+      <p j="0" op="0" value="20"/>
+      <p j="1" op="0" value="20"/>
+      <p j="2" op="0" value="20"/>
+      <p j="0" op="1" value="30"/>
+      <p j="1" op="1" value="30"/>
+      <p j="2" op="1" value="30"/>
+      <p j="0" op="2" value="30"/>
+      <p j="1" op="2" value="30"/>
+      <p j="2" op="2" value="30"/>
+      <p j="0" op="3" value="20"/>
+      <p j="1" op="3" value="20"/>
+      <p j="2" op="3" value="20"/>
+    </processingTimes>
+    <sizes default="0"/>
+    <setupTimesIndependent default="0">
+      <s j1="0" op1="1" j2="0" op2="2" value="70"/>
+      <s j1="1" op1="1" j2="1" op2="2" value="70"/>
+      <s j1="2" op1="1" j2="2" op2="2" value="70"/>
+    </setupTimesIndependent>
+    <setupTimes default="5"/>
+    <relativeDueDates>
+      <d j1="0" op1="1" j2="0" op2="0" value="20"/>
+      <d j1="1" op1="1" j2="1" op2="0" value="20"/>
+      <d j1="2" op1="1" j2="2" op2="0" value="20"/>
+      <d j1="0" op1="2" j2="0" op2="1" value="300"/>
+      <d j1="1" op1="2" j2="1" op2="1" value="300"/>
+      <d j1="2" op1="2" j2="2" op2="1" value="300"/>
+      <d j1="0" op1="3" j2="0" op2="2" value="30"/>
+      <d j1="1" op1="3" j2="1" op2="2" value="30"/>
+      <d j1="2" op1="3" j2="2" op2="2" value="30"/>
+    </relativeDueDates>
+  </SPInstance>
+  <SPInstance type="FORPFSSPSD" id="1" >
+    <jobs count="3">
+      <operations count="4"/>
+    </jobs>
+    <flowVector>
+      <component job="0" index="0" value="0"/>
+      <component job="0" index="1" value="1"/>
+      <component job="0" index="2" value="1"/>
+      <component job="0" index="3" value="2"/>
+      <component job="1" index="0" value="0"/>
+      <component job="1" index="1" value="1"/>
+      <component job="1" index="2" value="1"/>
+      <component job="1" index="3" value="2"/>
+      <component job="2" index="0" value="0"/>
+      <component job="2" index="1" value="1"/>
+      <component job="2" index="2" value="1"/>
+      <component job="2" index="3" value="2"/>
+    </flowVector>
+    <processingTimes default="0">
+      <p j="0" op="0" value="20"/>
+      <p j="1" op="0" value="20"/>
+      <p j="2" op="0" value="20"/>
+      <p j="0" op="1" value="30"/>
+      <p j="1" op="1" value="30"/>
+      <p j="2" op="1" value="30"/>
+      <p j="0" op="2" value="30"/>
+      <p j="1" op="2" value="30"/>
+      <p j="2" op="2" value="30"/>
+      <p j="0" op="3" value="20"/>
+      <p j="1" op="3" value="20"/>
+      <p j="2" op="3" value="20"/>
+    </processingTimes>
+    <sizes default="0"/>
+    <setupTimesIndependent default="0">
+      <s j1="0" op1="1" j2="0" op2="2" value="70"/>
+      <s j1="1" op1="1" j2="1" op2="2" value="70"/>
+      <s j1="2" op1="1" j2="2" op2="2" value="70"/>
+    </setupTimesIndependent>
+    <setupTimes default="5"/>
+    <relativeDueDates>
+      <d j1="0" op1="1" j2="0" op2="0" value="20"/>
+      <d j1="1" op1="1" j2="1" op2="0" value="20"/>
+      <d j1="2" op1="1" j2="2" op2="0" value="20"/>
+      <d j1="0" op1="2" j2="0" op2="1" value="300"/>
+      <d j1="1" op1="2" j2="1" op2="1" value="300"/>
+      <d j1="2" op1="2" j2="2" op2="1" value="300"/>
+      <d j1="0" op1="3" j2="0" op2="2" value="30"/>
+      <d j1="1" op1="3" j2="1" op2="2" value="30"/>
+      <d j1="2" op1="3" j2="2" op2="2" value="30"/>
+    </relativeDueDates>
+  </SPInstance>
+  <transfers>
+    <modulesTransfer id_from="0" id_to="1"> 
+      <setupTimes>
+        <s j="0" value="110"/>
+        <s j="1" value="110"/>
+        <s j="2" value="110"/>
+      </setupTimes>
+      <relativeDueDates>
+        <d j="0" value="130"/>
+        <d j="1" value="130"/>
+        <d j="2" value="130"/>
+      </relativeDueDates>
+    </modulesTransfer>
+  </transfers>
+</SPInstance>

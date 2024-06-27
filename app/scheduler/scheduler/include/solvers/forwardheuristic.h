@@ -3,12 +3,17 @@
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
 #include "FORPFSSPSD/indices.hpp"
-#include "FORPFSSPSD/module.hpp"
+#include "delay.h"
+#include "delayGraph/delayGraph.h"
+#include "delayGraph/edge.h"
 #include "longest_path.h"
-
-#include "pch/containers.hpp"
+#include "partialsolution.h"
+#include "utils/commandLine.h"
 
 #include <memory>
+#include <optional>
+#include <utility>
+#include <vector>
 
 namespace algorithm {
 

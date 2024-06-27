@@ -20,14 +20,14 @@ FlowShopVis::ProductionLineBoundsWidget::ProductionLineBoundsWidget(QWidget *par
     m_iterationLabel = new QLabel(this);
 }
 
-void ProductionLineBoundsWidget::setBounds(std::vector<algorithm::GlobalIntervals> bounds) {
+void ProductionLineBoundsWidget::setBounds(std::vector<FORPFSSPSD::GlobalBounds> bounds) {
 
     const auto mIdsView = bounds | std::views::join | std::views::keys;
     std::unordered_set<FORPFSSPSD::ModuleId> moduleIdsSet(mIdsView.begin(), mIdsView.end());
     std::vector<FORPFSSPSD::ModuleId> moduleIds(moduleIdsSet.begin(), moduleIdsSet.end());
     std::ranges::sort(moduleIds);
 
-    std::unordered_map<FORPFSSPSD::ModuleId, std::vector<algorithm::ModuleBounds>> moduleBounds;
+    std::unordered_map<FORPFSSPSD::ModuleId, std::vector<FORPFSSPSD::ModuleBounds>> moduleBounds;
     for (auto &bound : bounds) {
         for (const auto &moduleId : moduleIds) {
             auto it = bound.find(moduleId);

@@ -1,5 +1,6 @@
+#include "pch/containers.hpp"
+
 #include "solvers/mneh-heuristic.h"
-#include "solvers/forwardheuristic.h"
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
 #include "FORPFSSPSD/indices.hpp"
@@ -7,14 +8,10 @@
 #include "delayGraph/builder.hpp"
 #include "delayGraph/delayGraph.h"
 #include "delayGraph/edge.h"
-#include "delayGraph/export_utilities.h"
-#include "environmentalselectionoperator.h"
-#include "geometricselectionoperator.h"
-#include "maintenanceheuristic.h"
 #include "longest_path.h"
+#include "maintenanceheuristic.h"
 #include "solvers/utils.hpp"
 
-#include <chrono>
 #include <fmt/chrono.h>
 #include <fmt/compile.h>
 

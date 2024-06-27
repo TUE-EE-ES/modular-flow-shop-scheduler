@@ -1,9 +1,9 @@
 #ifndef CYCLEFINDER_H
 #define CYCLEFINDER_H
 
-#include "delayGraph/vertex.h"
+#include "delayGraph/edge.h"
 
-#include "pch/containers.hpp"
+#include <vector>
 
 class CycleFinder
 {

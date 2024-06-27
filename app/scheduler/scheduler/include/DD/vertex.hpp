@@ -3,14 +3,11 @@
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
 #include "FORPFSSPSD/indices.hpp"
-#include "FORPFSSPSD/operation.h"
 #include "delayGraph/delayGraph.h"
-#include "delayGraph/edge.h"
 #include "longest_path.h"
 
-#include "pch/containers.hpp"
-#include "pch/utils.hpp"
 #include <cstdint>
+#include <memory>
 #include <utility>
 
 namespace DD {
@@ -18,7 +15,6 @@ namespace DD {
 using MachineToVertex = std::unordered_map<FORPFSSPSD::MachineId, DelayGraph::VertexID>;
 using JobIdxToOpIdx = std::vector<std::size_t>;
 using MachineEdges = std::unordered_map<FORPFSSPSD::MachineId, DelayGraph::Edges>;
-// using VertexIdToVertex = std::unordered_map<std::uint64_t,std::shared_ptr<SeedVertex>>;
 
 class Vertex {
 public:
@@ -125,21 +121,17 @@ public:
 
     inline void removeReadyOperation(FORPFSSPSD::JobId id) { m_readyOps.extract(id); }
 
-    // void removeReadyOperation(const FORPFSSPSD::operation &op) {
-    //     m_readyOps.erase(std::remove(m_readyOps.begin(),m_readyOps.end(),op),m_readyOps.end());}
-
-    void setReadyOperations(const FORPFSSPSD::Instance &problemInstance,
-                            bool graphIsRelaxed = false) {
+    void setReadyOperations(const FORPFSSPSD::Instance &problem, bool graphIsRelaxed = false) {
         m_readyOps.clear();
-        const auto &jobs = problemInstance.jobs();
-        const auto &jobsOutput = problemInstance.getJobsOutput();
+        const auto &jobs = problem.jobs();
+        const auto &jobsOutput = problem.getJobsOutput();
 
         // For all jobs find the possible operations that can be scheduled
         for (std::size_t i = 0; i < jobs.size(); ++i) {
             // jobsOutput contains all IDs of jobs. The order of jobsOutput only matters for the
             // fixed output order flow-shop
             const auto jobId = jobsOutput[i];
-            const auto opIdx = m_jobsCompletion[i];
+            const auto opIdx = m_jobsCompletion.at(i);
             const auto &jobOps = jobs.at(jobId); // no chosen permutation for any shop
 
             if (opIdx >= jobOps.size()) {
@@ -147,8 +139,8 @@ public:
             }
             // if fixed order flowshop with no overtaking, then previous job must have at least done
             // that operation index too
-            if (problemInstance.shopType() == ShopType::FIXEDORDERSHOP && i > 0) {
-                if (m_jobsCompletion[i - 1] <= opIdx) { // TODO: Mixed plexity breaks this
+            if (problem.shopType() == ShopType::FIXEDORDERSHOP && i > 0) {
+                if (m_jobsCompletion.at(i - 1) <= opIdx) { // TODO: Mixed plexity breaks this
                     continue;
                 }
             }
@@ -157,14 +149,14 @@ public:
             // when we relax the graph, we allow overtaking because merge loses information on job
             // ordering
             //  and we do not want to exclude any solutions
-            if (problemInstance.shopType() == ShopType::FLOWSHOP && opIdx > 0 && !graphIsRelaxed) {
+            if (problem.shopType() == ShopType::FLOWSHOP && opIdx > 0 && !graphIsRelaxed) {
                 const auto &jobOrder = m_jobOrder;
                 // this is a flowshop and an operation of this job has been scheduled at this state
                 // and thus a relative order established
                 auto pos = std::find(jobOrder.begin(), jobOrder.end(), jobId);
-                if (pos != jobOrder.end() && pos - jobOrder.begin() > 0) {
-                    if (m_jobsCompletion[jobOrder.at(pos - jobOrder.begin() - 1)]
-                        <= m_jobsCompletion[jobOrder.at(pos - jobOrder.begin())]) {
+                if (pos != jobOrder.end() && std::distance(pos, jobOrder.begin()) > 0) {
+                    const auto jobPrevPos = problem.getJobOutputPosition(*(pos - 1));
+                    if (m_jobsCompletion.at(jobPrevPos) < opIdx) {
                         continue;
                     }
                 }
@@ -173,7 +165,7 @@ public:
             // LOG(FMT_COMPILE("Adding operation {} of job {} to the queue"), opIdx, i);
             // in a permutation flowshop, there is no overlap so all operations of a job can be
             // ready at once, it is based on job order
-            m_readyOps[jobId] = problemInstance.shopType() == ShopType::FLOWSHOP
+            m_readyOps[jobId] = problem.shopType() == ShopType::FLOWSHOP
                                         ? jobOps
                                         : FORPFSSPSD::OperationsVector{jobOps[opIdx]};
         }
@@ -193,8 +185,7 @@ private:
     algorithm::PathTimes m_ALAPST;
 
     /// Index of the next operation to do for each job. The index is not an OperationId but an index
-    /// in the vector of operations of the job. The same goes for the index of the job which is the
-    /// index of the job in the output order of the jobs.
+    /// in the vector of operations of the job.
     JobIdxToOpIdx m_jobsCompletion;
 
     // True if state is a terminal state i.e. all operations of all jobs have been scheduled
@@ -224,6 +215,9 @@ private:
     /// Vertex depth to use for node selection
     std::uint64_t m_vertexDepth;
 };
+
+using SharedVertex = std::shared_ptr<DD::Vertex>;
+
 } // namespace DD
 
 template <> struct std::hash<DD::JobIdxToOpIdx> {

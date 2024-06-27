@@ -10,7 +10,8 @@ Checks:  >
   -readability-identifier-length,
   -bugprone-easily-swappable-parameters,
   -bugprone-unchecked-optional-access,
-  -abseil-string-find-str-contains
+  -abseil-string-find-str-contains,
+  -cert-dcl21-cpp
 CheckOptions:
     - key: misc-non-private-member-variables-in-classes.IgnorePublicMemberVariables
       value: 1

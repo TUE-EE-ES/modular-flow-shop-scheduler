@@ -1,4 +1,5 @@
-#include "solvers/forwardheuristic.h"
+#include "pch/containers.hpp"
+
 #include "solvers/anytimeheuristic.h"
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
@@ -7,10 +8,8 @@
 #include "delayGraph/delayGraph.h"
 #include "delayGraph/edge.h"
 #include "delayGraph/export_utilities.h"
-#include "environmentalselectionoperator.h"
-#include "geometricselectionoperator.h"
 #include "longest_path.h"
-#include "maintenanceheuristic.h"
+#include "solvers/forwardheuristic.h"
 #include "solvers/utils.hpp"
 
 #include <chrono>
@@ -18,7 +17,6 @@
 #include <fmt/compile.h>
 
 using namespace algorithm;
-using namespace std;
 using namespace FORPFSSPSD;
 using namespace DelayGraph;
 
@@ -115,13 +113,18 @@ PartialSolution AnytimeHeuristic::getSolution(delayGraph &dg,
     // create all options that are potentially feasible:
     auto [lastPotentiallyFeasibleOption, options] =
             ForwardHeuristic::createOptions(dg, problem, solution, eligibleOperation, reEntrantMachineId);
-    
-    auto existingNorms = make_tuple(std::numeric_limits<delay>::max(), std::numeric_limits<delay>::min(),
-                                        std::numeric_limits<delay>::max(), std::numeric_limits<delay>::min(),
-                                        std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::min());
-    auto existingRank = make_tuple(solution,std::numeric_limits<delay>::max(),std::numeric_limits<delay>::max(),std::numeric_limits<uint32_t>::max());
 
-    
+    auto existingNorms = std::make_tuple(std::numeric_limits<delay>::max(),
+                                         std::numeric_limits<delay>::min(),
+                                         std::numeric_limits<delay>::max(),
+                                         std::numeric_limits<delay>::min(),
+                                         std::numeric_limits<uint32_t>::max(),
+                                         std::numeric_limits<uint32_t>::min());
+    auto existingRank = std::make_tuple(solution,
+                                        std::numeric_limits<delay>::max(),
+                                        std::numeric_limits<delay>::max(),
+                                        std::numeric_limits<uint32_t>::max());
+
     //fetch first base solution
     option &o = options[0];
     std::optional<std::pair<PartialSolution, option>> newSolution = evaluateOption(dg,
@@ -179,15 +182,15 @@ std::optional<std::pair<PartialSolution, option>> algorithm::AnytimeHeuristic::e
     MachineId reEntrantMachineId = problem.getMachine(eligibleOperation.operation);
     // update the ASAPTimes for the coming window, so that we have enough information to compute the ranking
 
-    const JobId job_start = eligibleOperation.operation.jobId;
-    vector<delay> ASAPTimes = solution.getASAPST();
+    const JobId jobStart = eligibleOperation.operation.jobId;
+    std::vector<delay> ASAPTimes = solution.getASAPST();
 
     LongestPath::computeASAPST(
             dg,
             ASAPTimes,
-            dg.cget_vertices(max(job_start, 1U) - 1),
-            dg.cget_vertices(job_start,
-                            dg.get_vertex(lastPotentiallyFeasibleOption.dst).operation.jobId));
+            dg.cget_vertices(std::max(jobStart, FS::JobId(1U)) - 1),
+            dg.cget_vertices(jobStart,
+                             dg.get_vertex(lastPotentiallyFeasibleOption.dst).operation.jobId));
 
     std::optional<std::pair<PartialSolution, option>> newSolution =
             ForwardHeuristic::evaluate_option_feasibility(dg, problem, solution, o, ASAPTimes, reEntrantMachineId);
@@ -319,11 +322,11 @@ std::tuple<std::tuple<delay,delay,delay,delay,uint32_t,uint32_t>,std::tuple<Part
                     c.nextV));
 
     // select the solution with lowest rank:
-    existingNorms = make_tuple(minPush,maxPush,minPushNext,maxPushNext,minOpsInBuffer,maxOpsInBuffer);
+    existingNorms = {minPush, maxPush, minPushNext, maxPushNext, minOpsInBuffer, maxOpsInBuffer};
     if (rank < curRank) {
         curRank = rank;
         curSol = sol;
-        existingRank = make_tuple(curSol,push,push_next,nrOps);
+        existingRank = {curSol, push, push_next, nrOps};
     }
     return std::make_tuple(existingNorms,existingRank);
 }

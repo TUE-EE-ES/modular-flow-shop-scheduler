@@ -25,8 +25,8 @@ TEST(CYCLE, SmallGraphWithNoEdges) {
     delayGraph dg;
 
     const int numNodes = 5;
-    for(unsigned int i = 0; i < numNodes; i++) {
-        dg.add_vertex(i,i);
+    for (std::size_t i = 0; i < numNodes; i++) {
+        dg.add_vertex(FS::JobId(i), FS::OperationId(i));
     }
 
     ASSERT_FALSE(NegativeCycleFinder(dg).hasNegativeCycle());
@@ -36,8 +36,8 @@ TEST(CYCLE, ManyNegativeCycles) {
     delayGraph dg;
 
     const int numNodes = 5;
-    for(unsigned int i = 0; i < numNodes; i++) {
-        dg.add_vertex(i,i);
+    for (std::size_t i = 0; i < numNodes; i++) {
+        dg.add_vertex(FS::JobId(i), FS::OperationId(i));
     }
 
     for (auto &vertex : dg.get_vertices()) {
@@ -56,8 +56,8 @@ TEST(CYCLE, ManyPositiveCycles) {
     delayGraph dg;
 
     const int numNodes = 5;
-    for(unsigned int i = 0; i < numNodes; i++) {
-        dg.add_vertex(i,i);
+    for(std::size_t i = 0; i < numNodes; i++) {
+        dg.add_vertex(FS::JobId(i), FS::OperationId(i));
     }
 
     for (auto &vertex : dg.get_vertices()) {
@@ -75,12 +75,12 @@ TEST(CYCLE, ManyPositiveCycles) {
 TEST(CYCLE, LongNegativeCycle) {
     delayGraph dg;
 
-    const int numNodes = 5;
+    const std::size_t numNodes = 5;
     VertexID prev = -1u;
 
-    for(unsigned int i = 0; i < numNodes; i++) {
+    for(std::size_t i = 0; i < numNodes; i++) {
 
-        VertexID current = dg.add_vertex(i, i);
+        VertexID current = dg.add_vertex(FS::JobId(i), FS::OperationId(i));
         if(prev != -1u) {
             dg.add_edge(prev, current, -1);
         }
@@ -95,8 +95,8 @@ TEST(CYCLE, LongNegativeCycle) {
 
 TEST(CYCLE, TwoVertexNegativeCycle) {
     delayGraph dg;
-    auto vId1 = dg.add_vertex(0U, 0U);
-    auto vId2 = dg.add_vertex(0U, 1U);
+    auto vId1 = dg.add_vertex(FS::JobId(0U), FS::OperationId(0U));
+    auto vId2 = dg.add_vertex(FS::JobId(0U), FS::OperationId(1U));
 
     auto &v1 = dg.get_vertex(vId1);
     auto &v2 = dg.get_vertex(vId2);
@@ -120,8 +120,8 @@ TEST(CYCLE, TwoVertexNegativeCycle) {
 
 TEST(CYCLE, TwoVertexPositiveCycle) {
     delayGraph dg;
-    auto vId1 = dg.add_vertex(0U, 0U);
-    auto vId2 = dg.add_vertex(0U, 1U);
+    auto vId1 = dg.add_vertex(FS::JobId(0U), FS::OperationId(0U));
+    auto vId2 = dg.add_vertex(FS::JobId(0U), FS::OperationId(1U));
 
     auto &v1 = dg.get_vertex(vId1);
     auto &v2 = dg.get_vertex(vId2);
@@ -137,7 +137,7 @@ TEST(CYCLE, SmallTree) {
 
     const int numNodes = 8;
     for(unsigned int i = 0; i < numNodes; i++) {
-        dg.add_vertex(i,i);
+        dg.add_vertex(FS::JobId(i), FS::OperationId(i));
     }
     auto &vertices = dg.get_vertices();
     EXPECT_TRUE(vertices.at(0).get_incoming_edges().empty());
@@ -158,8 +158,8 @@ TEST(CYCLE, SmallTree) {
 TEST(CYCLE, InfeasibleExample) {
     delayGraph dg;
 
-    VertexID v1 = dg.add_vertex(0u, 0u);
-    VertexID v2 = dg.add_vertex(1u, 1u);
+    VertexID v1 = dg.add_vertex(FS::JobId(0u), FS::OperationId(0u));
+    VertexID v2 = dg.add_vertex(FS::JobId(1u), FS::OperationId(1u));
 
     dg.add_edge(v1,v2,-1);
     dg.add_edge(v2,v1, 0);

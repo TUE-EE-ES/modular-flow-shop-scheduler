@@ -104,6 +104,7 @@ class Executor(Task):
                             / json_relative.parent
                             / mod_algorithm
                             / algorithm
+                            / f"time_{self.time_out}"
                             / f"run_{run_num}"
                         )
                         batch_out_dir.mkdir(exist_ok=True, parents=True)

@@ -6,9 +6,9 @@
 #include "FORPFSSPSD/xmlParser.h"
 #include "partialsolution.h"
 #include "solvers/production_line_solution.hpp"
+#include "solvers/solver.h"
+#include "solvers/solver_data.hpp"
 #include "utils/commandLine.h"
-
-#include "pch/containers.hpp"
 
 class FmsScheduler {
 public:
@@ -22,15 +22,17 @@ public:
     static FORPFSSPSD::Instance loadFlowShopInstance(commandLineArgs &args,
                                                      FORPFSSPSDXmlParser &parser);
 
+    /**
+     * @brief RankingHeuristic::checkConsistency
+     * @param flowshop
+     * @param bounds is set to true when the initial graph is consistent, false otherwise
+     * @return earliest possible starting times of operations given the initial constraints
+     */
     static std::pair<bool, std::vector<delay>>
     checkConsistency(const FORPFSSPSD::Instance &flowshop);
 
     /**
-     * @brief Runs the selected algorithm as provided by commandLineArgs::algorithm. Note only
-     *        algorithms that return a PartialSolution can be run with this method otherwise it
-     *        throws a std::runtime_error. This method **does not** support modular instances.
-     *
-     *        If you want to solve a modular problem use FmsScheduler::solve instead.
+     * @brief Runs the selected algorithm as provided by commandLineArgs::algorithm.
      * @param flowShopInstance Instance of the flow-shop problem
      * @param args Parsed command line arguments
      * @param iteration Number of the iteration to be run. This is used by some algorithms that 
@@ -38,20 +40,36 @@ public:
      * @return Solutions found with the selected algorithm. Note that some algorithms only return a
      *         single solution
      */
-    [[nodiscard]] static std::tuple<std::vector<PartialSolution>, nlohmann::json>
+    [[nodiscard]] static std::tuple<algorithm::Solutions, nlohmann::json>
     runAlgorithm(FORPFSSPSD::Instance &flowShopInstance,
                  const commandLineArgs &args,
                  std::uint64_t iteration = 0);
 
-    [[nodiscard]] static std::tuple<std::vector<PartialSolution>, nlohmann::json>
+    [[nodiscard]] static std::tuple<algorithm::Solutions, nlohmann::json>
     runAlgorithm(FORPFSSPSD::Module &flowShopInstance,
                  const commandLineArgs &args,
                  std::uint64_t iteration = 0);
 
-    [[nodiscard]] static std::tuple<std::vector<FMS::ProductionLineSolution>, nlohmann::json>
+    [[nodiscard]] static std::tuple<algorithm::ProductionLineSolutions, nlohmann::json>
     runAlgorithm(FORPFSSPSD::ProductionLine &problemInstance, const commandLineArgs &args);
 
-    template <typename T> struct PrintMe;
+    /**
+     * @brief Runs the selected resumable solver as provided by commandLineArgs::algorithm.
+     * @param problem Instance of the flow-shop problem
+     * @param args Parsed command line arguments
+     * @param solverData Scheduler-dependent data that can be used to resume the solver.
+     * @return Solutions found by the solver, information data about the run and the solver data
+     * that can be used to resume the solver later.
+     */
+    [[nodiscard]] static std::tuple<algorithm::Solutions, nlohmann::json, FMS::SolverDataPtr>
+    runResumable(FORPFSSPSD::Instance &problem,
+                 const commandLineArgs &args,
+                 FMS::SolverDataPtr solverData);
+
+    [[nodiscard]] static std::tuple<algorithm::Solutions, nlohmann::json, FMS::SolverDataPtr>
+    runResumable(FORPFSSPSD::Module &problem,
+                 const commandLineArgs &args,
+                 FMS::SolverDataPtr solverData);
 
     template <typename Problem>
     static void solveAndSave(Problem &problemInstance, commandLineArgs &args) {
@@ -82,11 +100,11 @@ public:
                 data["error"] = ErrorStrings::kNoSolution;
             }
 
-            addData(data, dataRun, bestSolution, time);
+            addData(data, dataRun, bestSolution, time, problemInstance);
 
         } catch (FmsSchedulerException &e) {
             data["error"] = ErrorStrings::kScheduler;
-            LOG(LOGGER_LEVEL::FATAL, fmt::format(FMT_COMPILE("Error: {}"), e.what()));
+            LOG(LOGGER_LEVEL::CRITICAL, fmt::format(FMT_COMPILE("Error: {}"), e.what()));
         }
 
         saveData(problemInstance, bestSolution, args, data);
@@ -121,18 +139,25 @@ private:
 
     [[nodiscard]] static nlohmann::json initializeData(const commandLineArgs &args);
 
-    template <typename Solution>
+    template <typename Solution, typename Problem>
     static void addData(nlohmann::json &data,
                         const nlohmann::json &dataRun,
                         const Solution &bestSolution,
-                        const std::size_t totalTime) {
+                        const std::size_t totalTime,
+                        const Problem &instance) {
         if (!dataRun.is_null()) {
             data.update(dataRun);
         }
         data["totalTime"] = totalTime;
+        delay minMakespan = 0;
 
         if (bestSolution) {
-            const auto minMakespan = bestSolution->getMakespan();
+            // Check if the type is a ProductionLineSolution
+            if constexpr (std::is_same_v<Solution, std::optional<FMS::ProductionLineSolution>>) {
+                minMakespan = bestSolution->getMakespan();
+            } else {
+                minMakespan = bestSolution->getRealMakespan(instance);
+            }
             const auto bestId = bestSolution->getId();
             fmt::print("Minimum makespan recorded is: {} for partial solution with ID {}\n",
                        minMakespan,

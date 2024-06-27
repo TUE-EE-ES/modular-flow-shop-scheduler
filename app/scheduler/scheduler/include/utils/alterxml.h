@@ -1,11 +1,10 @@
 #ifndef ALTERXML_H
 #define ALTERXML_H
 
-#include "pch/containers.hpp"
+#include "delay.h"
 
 #include <rapidxml.hpp>
-
-#include "delay.h"
+#include <string>
 
 void insertMaintenanceOperation(const std::string &filenameIn,
                                 const std::string &filenameOut,

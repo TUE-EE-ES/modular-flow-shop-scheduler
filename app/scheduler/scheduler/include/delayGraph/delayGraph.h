@@ -13,9 +13,6 @@
 #include "delayGraph/vertex.h"
 #include "fmsschedulerexception.h"
 
-#include "pch/containers.hpp"
-
-#include <algorithm>
 #include <fmt/core.h>
 
 class PartialSolution;
@@ -48,15 +45,8 @@ public:
 
     graph &operator=(graph &&other) noexcept = default;
     graph &operator=(const graph &other) = default;
-    
-    VertexID add_vertex(const FORPFSSPSD::operation &s) {
-        VertexID id = lastId++;
 
-        auto &v = vertices.emplace_back(id, s);
-        identifierToVertex[s] = id;
-        jobToVertex[s.jobId].emplace_back(v.id);
-        return id;
-    }
+    VertexID add_vertex(const FORPFSSPSD::operation &s);
 
     template <typename... Args> VertexID add_vertex(Args... args) {
         return add_vertex(FORPFSSPSD::operation{args...});
@@ -75,21 +65,7 @@ public:
         get_vertex(std::forward<T1>(src)).remove_edge(get_vertex(std::forward<T2>(dst)));
     }
 
-    Edges add_edges(const Edges &edges) {
-        Edges addedEdges;
-        addedEdges.reserve(edges.size());
-        for (const auto &e : edges) {
-            if (!has_edge(e.src, e.dst)) {
-                add_edge(e);
-                addedEdges.emplace_back(e);
-                // LOG("Actually added to dg egde from {} to {}",e.src,e.dst);
-            }
-            // else{
-            //     LOG("Edge from {} to {} already exists with weight {}",e.src,e.dst,get_edge(e.src,e.dst).weight);
-            // }
-        }
-        return addedEdges;
-    }
+    Edges add_edges(const Edges &edges);
 
     inline void add_edge(const edge &e) { get_vertex(e.src).add_edge(get_vertex(e.dst), e); }
 
@@ -226,83 +202,22 @@ public:
         return vertices;
     }
 
-    [[nodiscard]] VerticesCRef get_vertices(FORPFSSPSD::JobId jobId) const {
-        auto i = jobToVertex.find(jobId);
+    [[nodiscard]] VerticesCRef get_vertices(FORPFSSPSD::JobId jobId) const;
 
-        if (i == jobToVertex.cend()) {
-            throw FmsSchedulerException(fmt::format(
-                    "Error, unable to find vertices for the given job ({}) in the graph", jobId));
-        }
+    [[nodiscard]] VerticesRef get_vertices(FORPFSSPSD::JobId jobId);
 
-        // Collect references to the vertices
-        VerticesCRef vertices;
-        vertices.reserve(i->second.size());
-        for (const auto &vId : i->second) {
-            vertices.emplace_back(get_vertex(vId));
-        }
+    [[nodiscard]] VerticesCRef get_vertices(const std::vector<FORPFSSPSD::JobId> &jobIds) const;
 
-        return vertices;
-    }
-
-    [[nodiscard]] VerticesRef get_vertices(FORPFSSPSD::JobId jobId) {
-        auto i = jobToVertex.find(jobId);
-
-        if (i == jobToVertex.cend()) {
-            throw FmsSchedulerException(fmt::format(
-                    "Error, unable to find vertices for the given job ({}) in the graph", jobId));
-        }
-
-        // Collect references to the vertices
-        VerticesRef vertices;
-        vertices.reserve(i->second.size());
-        for (const auto &vId : i->second) {
-            vertices.emplace_back(get_vertex(vId));
-        }
-
-        return vertices;
-    }
-
-    [[nodiscard]] VerticesCRef
-    get_vertices(const std::vector<FORPFSSPSD::JobId> &jobIds) const {
-        VerticesCRef result;
-        for (auto jobId : jobIds) {
-            for (const auto &v : get_vertices(jobId)) {
-                result.push_back(std::cref(v));
-            }
-        }
-        return result;
-    }
-
-    [[nodiscard]] VerticesCRef
-    get_vertices(FORPFSSPSD::JobId start_id, FORPFSSPSD::JobId end_id) const {
-        VerticesCRef result;
-        for (auto id = start_id; id <= end_id; ++id) {
-            for (const auto &v: get_vertices(id)) {
-                result.push_back(std::cref(v));
-            }
-        }
-        return result;
-    }
+    [[nodiscard]] VerticesCRef get_vertices(FORPFSSPSD::JobId start_id,
+                                            FORPFSSPSD::JobId end_id) const;
 
     template <typename... T> [[nodiscard]] inline VerticesCRef cget_vertices(T &&...job) const {
         return get_vertices(std::forward<T>(job)...);
     }
 
-    [[nodiscard]] VerticesCRef cget_vertices() const {
-        VerticesCRef result;
-        for (const auto &v : vertices) {
-            result.push_back(std::cref(v));
-        }
-        return result;
-    }
+    [[nodiscard]] VerticesCRef cget_vertices() const;
 
-    [[nodiscard]] static VerticesCRef to_constant(const VerticesRef &vertices) {
-        VerticesCRef result;
-        for (auto v : vertices) {
-            result.push_back(std::cref(v));
-        }
-        return result;
-    }
+    [[nodiscard]] static VerticesCRef to_constant(const VerticesRef &vertices);
 
 private:
     VertexID lastId{};
@@ -318,11 +233,11 @@ private:
 
 class delayGraph : public graph {
 public:
-    const static FORPFSSPSD::JobId SOURCE_ID = std::numeric_limits<FORPFSSPSD::JobId>::max();
-    const static FORPFSSPSD::JobId TERMINAL_ID = std::numeric_limits<FORPFSSPSD::JobId>::max() - 1;
-    const static FORPFSSPSD::JobId MAINT_ID = std::numeric_limits<FORPFSSPSD::JobId>::max() - 2;
+    constexpr const static FORPFSSPSD::JobId SOURCE_ID{FORPFSSPSD::JobId::max()};
+    constexpr const static FORPFSSPSD::JobId TERMINAL_ID{FORPFSSPSD::JobId::max() - 1U};
+    constexpr const static FORPFSSPSD::JobId MAINT_ID{FORPFSSPSD::JobId::max() - 2U};
 
-    constexpr static FORPFSSPSD::operation OP_TERMINAL = {TERMINAL_ID, 0};
+    constexpr const static FORPFSSPSD::operation OP_TERMINAL{TERMINAL_ID, 0};
 
     VertexID add_source(FORPFSSPSD::MachineId sourceId) {
         return add_vertex(SOURCE_ID, static_cast<FORPFSSPSD::OperationId>(sourceId));
@@ -379,28 +294,19 @@ public:
         return is_visible(get_vertex(std::forward<T>(v)));
     }
 
-    [[nodiscard]] VerticesCRef get_sources() const {
-        VerticesCRef result;
-        const auto &vertices = get_vertices();
-        std::copy_if(vertices.begin(),
-                     vertices.end(),
-                     std::back_inserter(result),
-                     [&](const vertex &v) { return is_source(v); });
-        return result;
-    }
+    [[nodiscard]] VerticesCRef get_sources() const;
 
-    [[nodiscard]] VerticesCRef get_maint_vertices() const {
-        VerticesCRef v;
-        for(const auto& vert : get_vertices()) {
-            if (is_maint(vert)){
-                v.emplace_back(vert);
-            }
-        }
-        return v;
-    }
+    [[nodiscard]] VerticesCRef get_maint_vertices() const;
 
     [[nodiscard]] inline const vertex &get_source(FORPFSSPSD::MachineId machineId) const {
         return get_vertex({SOURCE_ID, static_cast<FORPFSSPSD::OperationId>(machineId)});
+    }
+
+    template <typename T> [[nodiscard]] inline vertex &get_source(T &&v) {
+        // NOLINTBEGIN: This allows us to reimplement the method for const and non-const
+        return const_cast<vertex &>(
+                const_cast<const delayGraph *>(this)->get_source(std::forward<T>(v)));
+        // NOLINTEND
     }
 
     [[nodiscard]] inline const vertex &get_terminus() const {
@@ -409,13 +315,6 @@ public:
 
     [[nodiscard]] inline vertex &get_terminus() {
         return get_vertex(OP_TERMINAL);
-    }
-
-    template <typename T> [[nodiscard]] inline vertex &get_source(T &&v) {
-        // NOLINTBEGIN: This allows us to reimplement the method for const and non-const
-        return const_cast<vertex &>(
-                const_cast<const delayGraph *>(this)->get_source(std::forward<T>(v)));
-        // NOLINTEND
     }
 };
 } // namespace DelayGraph

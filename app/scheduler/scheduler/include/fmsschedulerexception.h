@@ -9,9 +9,8 @@
 #ifndef FMSSCHEDULEREXCEPTION_H_
 #define FMSSCHEDULEREXCEPTION_H_
 
-#include "pch/containers.hpp"
-
 #include <stdexcept>
+#include <string>
 
 class FmsSchedulerException : public std::runtime_error {
 

@@ -1,3 +1,6 @@
+#include "pch/containers.hpp"
+#include "pch/utils.hpp"
+
 #include "solvers/sequence.hpp"
 
 #include "FORPFSSPSD/indices.hpp"
@@ -10,16 +13,13 @@
 #include "longest_path.h"
 #include "partialsolution.h"
 
-#include "pch/containers.hpp"
-#include "pch/utils.hpp"
-
 #include <fmt/chrono.h>
 #include <fmt/compile.h>
 #include <fstream>
 #include <nlohmann/json.hpp>
 
 namespace {
-nlohmann::json initAndLoadJSON(FORPFSSPSD::Instance &f, const commandLineArgs &args) {
+void initGraph(FORPFSSPSD::Instance &f, const commandLineArgs &args) {
     if (!f.isGraphInitialized()) {
         f.updateDelayGraph(DelayGraph::Builder::build(f));
     }
@@ -29,13 +29,6 @@ nlohmann::json initAndLoadJSON(FORPFSSPSD::Instance &f, const commandLineArgs &a
         auto name = fmt::format("input_graph_{}.dot", f.getProblemName());
         DelayGraph::export_utilities::saveAsDot(dg, name);
     }
-
-    if (!std::filesystem::exists(args.sequenceFile)) {
-        LOG_E("The given sequence file does not exist");
-        throw FmsSchedulerException("The given sequence file does not exist");
-    }
-
-    return nlohmann::json::parse(std::ifstream{args.sequenceFile});
 }
 
 std::tuple<std::vector<PartialSolution>, nlohmann::json>
@@ -57,6 +50,11 @@ compute(DelayGraph::delayGraph dg,
         throw FmsSchedulerException("The sequence is not valid");
     }
 
+    if (Logger::getLevel() >= LOGGER_LEVEL::DEBUG) {
+        DelayGraph::export_utilities::saveAsDot(
+                dg, fmt::format("output_graph_{}.dot", problemName), allEdges);
+    }
+
     PartialSolution solution{solutionEdges, std::move(ASAPST)};
     return std::make_tuple(std::vector<PartialSolution>{{std::move(solution)}}, nlohmann::json{});
 }
@@ -64,16 +62,33 @@ compute(DelayGraph::delayGraph dg,
 
 std::tuple<std::vector<PartialSolution>, nlohmann::json> algorithm::Sequence::solve(
         FORPFSSPSD::Instance &f, const commandLineArgs &args, std::uint64_t iteration) {
-    const auto json = initAndLoadJSON(f, args);
-    const auto solution = loadPerMachineSequences(json, f, iteration);
+    initGraph(f, args);
+    const auto solution = loadPerMachineSequencesTop(args.sequenceFile, f, iteration);
     return compute(f.getDelayGraph(), solution, f.getProblemName());
 }
 
 std::tuple<std::vector<PartialSolution>, nlohmann::json> algorithm::Sequence::solve(
         FORPFSSPSD::Module &f, const commandLineArgs &args, std::uint64_t iteration) {
-    const auto json = initAndLoadJSON(f, args);
-    const auto solution = loadSingleModuleSequence(json, f, iteration);
+    initGraph(f, args);
+    const auto solution = loadSingleModuleSequenceTop(args.sequenceFile, f, iteration);
     return compute(f.getDelayGraph(), solution, f.getProblemName());
+}
+
+nlohmann::json algorithm::Sequence::loadSequencesTop(const std::string &filename) {
+    if (!std::filesystem::exists(filename)) {
+        LOG_E("The given sequence file does not exist");
+        throw FmsSchedulerException("The given sequence file does not exist");
+    }
+
+    auto jsonFile = nlohmann::json::parse(std::ifstream{filename});
+
+    if (!jsonFile.contains(algorithm::Sequence::SequenceStrings::kSequence)) {
+        LOG_E("The given sequence file does not contain a {} key",
+              algorithm::Sequence::SequenceStrings::kSequence);
+        throw FmsSchedulerException("The given sequence file does not contain a sequence key");
+    }
+
+    return std::move(jsonFile.at(algorithm::Sequence::SequenceStrings::kSequence));
 }
 
 DelayGraph::Edges algorithm::Sequence::loadSingleSequence(const nlohmann::json &jsonSequence,
@@ -91,8 +106,8 @@ DelayGraph::Edges algorithm::Sequence::loadSingleSequence(const nlohmann::json &
             throw FmsSchedulerException("The operation is not valid");
         }
 
-        const auto &jobId = operation[0].get<FORPFSSPSD::JobId>();
-        const auto &operationId = operation[1].get<FORPFSSPSD::OperationId>();
+        const FS::JobId jobId(operation[0].get<FORPFSSPSD::JobId::ValueType>());
+        const FS::OperationId operationId(operation[1].get<FORPFSSPSD::OperationId>());
         const FORPFSSPSD::operation op{jobId, operationId};
 
         if (!f.containsOp(op)) {
@@ -184,18 +199,17 @@ algorithm::Sequence::loadProductionLineSequences(const nlohmann::json &json,
 }
 
 nlohmann::json algorithm::Sequence::saveSingleSequence(const DelayGraph::Edges &sequence,
-                                                       const FORPFSSPSD::Instance &f) {
+                                                       const DelayGraph::delayGraph &dg) {
     // Assumes that the edges are in order (e.g. (1, 2), (2, 3), (3, 4)...)
     nlohmann::json result = nlohmann::json::array();
 
-    const auto &dg = f.getDelayGraph();
     std::optional<FORPFSSPSD::operation> previousOp;
 
     for (const auto &edge : sequence) {
         if (dg.is_source(edge.src)) {
             const auto op = dg.get_operation(edge.dst);
             previousOp = op;
-            result.push_back(nlohmann::json::array({op.jobId, op.operationId}));
+            result.push_back(nlohmann::json::array({op.jobId.value, op.operationId}));
             continue;
         }
 
@@ -207,7 +221,7 @@ nlohmann::json algorithm::Sequence::saveSingleSequence(const DelayGraph::Edges &
             throw FmsSchedulerException("The sequence is not valid");
         }
 
-        result.push_back(nlohmann::json::array({opDst.jobId, opDst.operationId}));
+        result.push_back(nlohmann::json::array({opDst.jobId.value, opDst.operationId}));
         previousOp = opDst;
     }
     return result;
@@ -215,26 +229,26 @@ nlohmann::json algorithm::Sequence::saveSingleSequence(const DelayGraph::Edges &
 
 nlohmann::json
 algorithm::Sequence::savePerMachineSequences(const PartialSolution::MachineEdges &sequences,
-                                             const FORPFSSPSD::Instance &f) {
+                                             const DelayGraph::delayGraph &dg) {
     nlohmann::json result;
     for (const auto &[machineId, sequence] : sequences) {
-        result[fmt::to_string(machineId)] = saveSingleSequence(sequence, f);
+        result[fmt::to_string(machineId)] = saveSingleSequence(sequence, dg);
     }
     return {{SequenceStrings::kMachineSequences, std::move(result)}};
 }
 
 nlohmann::json
 algorithm::Sequence::saveProductionLineSequences(const FMS::ModulesSolutions &solutions,
-                                                 const FORPFSSPSD::ProductionLine &f) {
+                                                 const FORPFSSPSD::ProductionLine &p) {
     nlohmann::json modules;
 
     for (const auto &[moduleId, moduleSolution] : solutions) {
         const auto key = fmt::to_string(moduleId);
         const auto &machineEdges = moduleSolution.getChosenEdgesPerMachine();
-        modules[key] = savePerMachineSequences(machineEdges, f.getModule(moduleId));
+        modules[key] = savePerMachineSequences(machineEdges, p.getModule(moduleId).getDelayGraph());
     }
 
-    return {{"modules", std::move(modules)}};
+    return {{SequenceStrings::kModules, std::move(modules)}};
 }
 
 nlohmann::json
@@ -244,8 +258,8 @@ algorithm::Sequence::saveProductionLineSequences(const FMS::ProductionLineSequen
 
     for (const auto &[moduleId, machineEdges] : sequences) {
         const auto key = fmt::to_string(moduleId);
-        modules[key] = savePerMachineSequences(machineEdges, f.getModule(moduleId));
+        modules[key] = savePerMachineSequences(machineEdges, f.getModule(moduleId).getDelayGraph());
     }
 
-    return {{"modules", std::move(modules)}};
+    return {{SequenceStrings::kModules, std::move(modules)}};
 }

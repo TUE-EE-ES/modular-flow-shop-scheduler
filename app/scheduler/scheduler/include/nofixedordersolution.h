@@ -1,11 +1,12 @@
 #ifndef NOFIXEDORDERSOLUTION
 #define NOFIXEDORDERSOLUTION
 
+#include "FORPFSSPSD/indices.hpp"
+#include "delayGraph/delayGraph.h"
 #include "partialsolution.h"
 
-#include "pch/containers.hpp"
-
 #include <utility>
+#include <vector>
 
 class NoFixedOrderSolution {
 public:

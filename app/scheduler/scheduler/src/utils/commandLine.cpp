@@ -11,6 +11,8 @@
  *
  */
 
+#include "pch/containers.hpp"
+
 #include "utils/commandLine.h"
 
 #include "utils/strings.hpp"
@@ -122,8 +124,8 @@ std::string_view AlgorithmType::fullName() const {
         return "iterated greedy solver";
     case Value::DD:
         return "Decision diagram";
-    case Value::DDSeed:
-        return "Decision diagram built around a seed solution";
+    case Value::SIMPLE:
+        return "simple non-interleaving scheduler";
     }
 
     return "";
@@ -161,8 +163,8 @@ std::string_view AlgorithmType::shortName() const {
         return "iterated-greedy";
     case Value::DD:
         return "dd";
-    case Value::DDSeed:
-        return "ddseed";
+    case Value::SIMPLE:
+        return "simple";
     }
 
     return "";
@@ -198,8 +200,6 @@ std::string_view ModularAlgorithmType::fullName() const {
         return "broadcast";
     case Value::COCKTAIL:
         return "cocktail";
-    case Value::BACKTRACK:
-        return "backtrack";
     }
 
     return "";
@@ -211,8 +211,6 @@ std::string_view ModularAlgorithmType::shortName() const {
         return "broadcast";
     case Value::COCKTAIL:
         return "cocktail";
-    case Value::BACKTRACK:
-        return "backtrack";
     }
 
     return "";

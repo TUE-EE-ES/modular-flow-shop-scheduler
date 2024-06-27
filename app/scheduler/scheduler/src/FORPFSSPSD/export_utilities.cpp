@@ -1,4 +1,7 @@
+#include "pch/containers.hpp"
+
 #include "FORPFSSPSD/export_utilities.hpp"
+
 #include "FORPFSSPSD/aliases.hpp"
 #include "FORPFSSPSD/operation.h"
 #include "delayGraph/vertex.h"
@@ -69,7 +72,7 @@ void FORPFSSPSD::ExportUtilities::saveAsXML(const fs::path &outputPath,
     auto processingTimes = instance.processingTimes();
     auto machineMapping = instance.machineMapping();
 
-    JobId jobId = jobs.size();
+    JobId jobId = FS::JobId(jobs.size());
     
     for (const DelayGraph::vertex &v : delayGraph.get_maint_vertices()) {
         OperationsVector ops{{jobId, 0}, {jobId, 1}, {jobId, 2}, {jobId, 3}};

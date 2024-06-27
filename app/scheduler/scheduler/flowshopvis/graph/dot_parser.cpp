@@ -189,7 +189,8 @@ FlowShopVis::DOT::getOperationFromLabel(const std::string &label) {
 
     try {
         // NOLINTNEXTLINE(google-readability-casting): Wrongly flagged redundant cast
-        return FORPFSSPSD::operation(std::stoi(match[1]), std::stoi(match[2]));
+        return FORPFSSPSD::operation(FS::JobId(std::stoi(match[1])),
+                                     FS::OperationId(std::stoi(match[2])));
     } catch (const std::invalid_argument &e) {
         return std::nullopt;
     }

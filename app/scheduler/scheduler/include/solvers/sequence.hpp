@@ -8,25 +8,44 @@
 #include "partialsolution.h"
 #include "solvers/production_line_solution.hpp"
 
-#include <filesystem>
 #include <nlohmann/json.hpp>
 
+/// Solver that uses a provided sequence using the `--sequence-file` command-line argument.
 namespace algorithm::Sequence {
 
+/**
+ * @brief Constants used to save and load sequences from JSON.
+ */
 class SequenceStrings {
 public:
     static constexpr auto kModules = "modules";
     static constexpr auto kMachineSequences = "machineSequences";
+
+    /// @brief Top level object name of every sequence file
+    /// @details For compatibility with the output JSON file which stores the sequence in a key
+    /// called `sequence`.
+    static constexpr auto kSequence = "sequence";
 };
 
-std::tuple<std::vector<PartialSolution>, nlohmann::json>
-solve(FORPFSSPSD::Instance &f, const std::filesystem::path &sequenceFile);
-
+/**
+ * @brief Solve the passed problem instance and return the sequences of operations per machine.
+ * @param f Instance of a n-re-entrant flow-shop problem with setup times, due dates, and/or
+ * maintenance times.
+ * @param args Command line arguments.
+ */
 std::tuple<std::vector<PartialSolution>, nlohmann::json>
 solve(FORPFSSPSD::Instance &f, const commandLineArgs &args, std::uint64_t iteration = 0);
 
+/**
+ * @brief Solve the passed problem instance and return the sequences of operations per machine.
+ * @param f Instance of a modular n-re-entrant flow-shop problem with setup times, due dates, and/or
+ * maintenance times.
+ * @param args Command line arguments.
+ */
 std::tuple<std::vector<PartialSolution>, nlohmann::json>
 solve(FORPFSSPSD::Module &f, const commandLineArgs &args, std::uint64_t iteration = 0);
+
+nlohmann::json loadSequencesTop(const std::string &filename);
 
 /**
  * @brief Loads a single sequence of operations (`$operationsSequence`) from a JSON stream.
@@ -91,9 +110,6 @@ PartialSolution::MachineEdges loadPerMachineSequences(const nlohmann::json &json
                                                       const FORPFSSPSD::Instance &f,
                                                       std::uint64_t iteration);
 
-FMS::ProductionLineSequences loadProductionLineSequences(const nlohmann::json &json,
-                                                         const FORPFSSPSD::ProductionLine &f);
-
 /**
  * @brief Loads the sequence of operations of a single module from a JSON.
  *
@@ -108,7 +124,7 @@ FMS::ProductionLineSequences loadProductionLineSequences(const nlohmann::json &j
  * }
  * ```
  *
- * Where $moduleId is the id of the module, and $machinesSequence is defined in @ref
+ * Where $moduleId is the id of the module, and `$machinesSequence` is defined in @ref
  * loadPerMachineSequences.
  *
  * @param json JSON object where to read the sequence from
@@ -121,13 +137,83 @@ PartialSolution::MachineEdges loadSingleModuleSequence(const nlohmann::json &jso
                                                        const FORPFSSPSD::Module &f,
                                                        std::uint64_t iteration);
 
-nlohmann::json saveSingleSequence(const DelayGraph::Edges &sequence, const FORPFSSPSD::Instance &f);
+FMS::ProductionLineSequences loadProductionLineSequences(const nlohmann::json &json,
+                                                         const FORPFSSPSD::ProductionLine &f);
 
+/**
+ * @brief Load the sequences of operations of all machines from a JSON file.
+ * @details Assumes that the JSON file has a top level object with a key `sequence` containing the
+ * sequences of operations.
+ */
+inline PartialSolution::MachineEdges loadPerMachineSequencesTop(const std::string &filename,
+                                                                const FORPFSSPSD::Instance &f,
+                                                                std::uint64_t iteration) {
+    return loadPerMachineSequences(loadSequencesTop(filename), f, iteration);
+}
+
+/**
+ * @brief Load the sequences of operations of all machines from a JSON file. Production line
+ * variation.
+ * @details Assumes that the JSON file has a top level object with a key `sequence` containing the
+ * sequences of operations.
+ */
+inline PartialSolution::MachineEdges loadSingleModuleSequenceTop(const std::string &filename,
+                                                                 const FORPFSSPSD::Module &f,
+                                                                 std::uint64_t iteration) {
+    return loadSingleModuleSequence(loadSequencesTop(filename), f, iteration);
+}
+
+/**
+ * @brief Load the sequences of operations of a production line from a JSON file.
+ * @details Assumes that the JSON file has a top level object with a key `sequence` containing the
+ * sequences of operations.
+ */
+inline FMS::ProductionLineSequences
+loadProductionLineSequencesTop(const std::string &filename, const FORPFSSPSD::ProductionLine &f) {
+    return loadProductionLineSequences(loadSequencesTop(filename), f);
+}
+
+/**
+ * @brief Saves a single sequence as a JSON object.
+ * @details The format is the same as the one used in @ref loadSingleSequence.
+ * @param sequence The sequence to be saved.
+ * @param dg The delay graph associated with the sequence.
+ * @return The saved sequence as a JSON object.
+ */
+nlohmann::json saveSingleSequence(const DelayGraph::Edges &sequence,
+                                  const DelayGraph::delayGraph &dg);
+
+/**
+ * @brief Saves the sequence of operations of all machines as a JSON object.
+ * @details The format is the same as the one used in @ref loadPerMachineSequences.
+ * @param sequences The sequence to be saved.
+ * @param dg The delay graph associated with the sequence.
+ * @return The saved sequence as a JSON object.
+ */
 nlohmann::json savePerMachineSequences(const PartialSolution::MachineEdges &sequences,
-                                       const FORPFSSPSD::Instance &f);
+                                       const DelayGraph::delayGraph &dg);
 
-nlohmann::json saveProductionLineSequences(const FMS::ModulesSolutions &solutions,
-                                           const FORPFSSPSD::ProductionLine &f);
+/**
+ * @brief Produces a top level object with the sequences of operations of all machines.
+ * @details This JSON object can directly be written to a file and the sequences can be loaded
+ * back by the @ref solve function.
+ * @return nlohmann::json A JSON object with a single key `sequence` containing the sequences of
+ * operations.
+ */
+inline nlohmann::json savePerMachineSequencesTop(const PartialSolution::MachineEdges &sequences,
+                                                 const DelayGraph::delayGraph &dg) {
+    return {{SequenceStrings::kSequence, savePerMachineSequences(sequences, dg)}};
+}
+
+/**
+ * @brief Saves the sequence of operations of a single module as a JSON object.
+ * @details The format is the same as the one used in @ref loadSingleModuleSequence.
+ * @param solution The solution of the production line with the sequences of all the modules.
+ * @param p The production line problem.
+ * @return The saved sequence as a JSON object.
+ */
+nlohmann::json saveProductionLineSequences(const FMS::ModulesSolutions &solution,
+                                           const FORPFSSPSD::ProductionLine &p);
 
 inline nlohmann::json saveProductionLineSequences(const FMS::ProductionLineSolution &solution,
                                                   const FORPFSSPSD::ProductionLine &f) {
@@ -136,6 +222,20 @@ inline nlohmann::json saveProductionLineSequences(const FMS::ProductionLineSolut
 
 nlohmann::json saveProductionLineSequences(const FMS::ProductionLineSequences &sequences,
                                            const FORPFSSPSD::ProductionLine &f);
+
+/**
+ * @brief Produces a top level object with the sequences of operations of all machines.
+ * @details This JSON object can directly be written to a file and the sequences can be loaded
+ * back by the @ref solve function.
+ * @return nlohmann::jsons A JSON object with a single key `sequence` containing the sequences of
+ * operations.
+ */
+template <typename T>
+inline nlohmann::json saveProductionLineSequencesTop(T &&sequences,
+                                                     const FORPFSSPSD::ProductionLine &f) {
+    return {{SequenceStrings::kSequence,
+             saveProductionLineSequences(std::forward<T>(sequences), f)}};
+}
 
 } // namespace algorithm::Sequence
 

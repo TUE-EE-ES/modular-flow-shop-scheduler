@@ -12,7 +12,7 @@ class BoundsModel : public QAbstractTableModel {
 public:
     explicit BoundsModel(QObject *parent = nullptr) : QAbstractTableModel(parent) {}
 
-    void setBounds(std::vector<algorithm::ModuleBounds> bounds);
+    void setBounds(std::vector<FORPFSSPSD::ModuleBounds> bounds);
 
     // NOLINTBEGIN(google-default-arguments)
     [[nodiscard]] int rowCount(const QModelIndex &parent = QModelIndex()) const override;
@@ -30,7 +30,7 @@ public slots:
     void iterationChanged(std::size_t iteration);
 
 private:
-    std::vector<algorithm::ModuleBounds> m_bounds;
+    std::vector<FORPFSSPSD::ModuleBounds> m_bounds;
 
     std::vector<FORPFSSPSD::JobId> m_sortedJobs;
 

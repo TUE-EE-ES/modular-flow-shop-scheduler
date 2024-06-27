@@ -8,30 +8,28 @@
 #include "utils/types.hpp"
 
 #include <cstdint>
-#include <fmt/core.h>
 
 namespace FORPFSSPSD {
 
-struct P_ModuleIdTag {};
+/// Index of a job
+STRONG_TYPE(JobId, std::uint32_t);
+
+/// Index of a operation within a job
+using OperationId = std::uint32_t;
 
 /// Index of a @ref Module
-using ModuleId = FMS::Utils::StrongType<P_ModuleIdTag, std::uint32_t>;
-
-struct P_MachineIdTag {};
+STRONG_TYPE(ModuleId, std::uint32_t);
 
 /// Index of a machine
-using MachineId = FMS::Utils::StrongType<P_MachineIdTag, std::uint32_t>;
-
-struct P_ReEntrantIdTag {};
+STRONG_TYPE(MachineId, std::uint32_t);
 
 /// Index of a re-entrancy
-using ReEntrantId = FMS::Utils::StrongType<P_ReEntrantIdTag, std::uint32_t>;
-
-
-struct P_ReEntranciesTag {};
+STRONG_TYPE(ReEntrantId, std::uint32_t);
 
 /// Number of re-entrancies of a job in a machine (for now the maximum is 256)
-using ReEntrancies = FMS::Utils::StrongType<P_ReEntranciesTag, std::uint8_t>;
+STRONG_TYPE(ReEntrancies, std::uint8_t);
 } // namespace FORPFSSPSD
+
+namespace FS = FORPFSSPSD;
 
 #endif // INDICES_HPP

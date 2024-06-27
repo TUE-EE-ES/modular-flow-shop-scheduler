@@ -6,6 +6,8 @@
  *
  *  Modified by Joost van Pinxten (joost.vanpinxten@cpp.canon)
  */
+#include "pch/containers.hpp"
+
 #include "FORPFSSPSD/FORPFSSPSD.h"
 
 #include "FORPFSSPSD/export_utilities.hpp"
@@ -102,7 +104,6 @@ void FORPFSSPSD::Instance::save(const PartialSolution &best, const commandLineAr
     DelayGraph::Edges final_sequence;
     switch (args.algorithm) {
         case AlgorithmType::DD:
-        case AlgorithmType::DDSeed:
             final_sequence = best.getAllChosenEdges();
             break;
         default:
@@ -203,13 +204,12 @@ void FORPFSSPSD::Instance::save(delayGraph &graph,
         // separation time is the first operation's time (op 0)
         // buffer time is the time between the first and second re-entrant operation (op 1 and 2)
         for (const auto &[i, _] : m_jobs) {
-                fmt::print(
-                        file,
-                        FMT_STRING("{:>15d}\t{:>15d}\n"),
-                        ASAPST[i * graph.get_vertex({i, 0}).id],
-                        (ASAPST[graph.get_vertex({i, 2}).id] - ASAPST[graph.get_vertex({i, 1}).id]
-                         - graph.get_edge(graph.get_vertex({i, 1}).id, graph.get_vertex({i, 2}).id)
-                                   .weight));
+            fmt::print(file,
+                       FMT_STRING("{:>15d}\t{:>15d}\n"),
+                       ASAPST[i.value * graph.get_vertex({i, 0}).id],
+                       (ASAPST[graph.get_vertex({i, 2}).id] - ASAPST[graph.get_vertex({i, 1}).id]
+                        - graph.get_edge(graph.get_vertex({i, 1}).id, graph.get_vertex({i, 2}).id)
+                                  .weight));
         }
     default:
         break;
@@ -224,12 +224,13 @@ nlohmann::json FORPFSSPSD::Instance::saveJSON(const PartialSolution &solution) c
         auto srcOp = m_dg->get_vertex(e.src).operation;
         auto dstOp = m_dg->get_vertex(e.dst).operation;
         result["schedule"] +=
-                {{"edge", {{srcOp.jobId, srcOp.operationId}, {dstOp.jobId, dstOp.operationId}}},
+                {{"edge",
+                  {{srcOp.jobId.value, srcOp.operationId}, {dstOp.jobId.value, dstOp.operationId}}},
                  {"weight", e.weight}};
     }
     const auto &ASAPST = solution.getASAPST();
     for (const auto &v : m_dg->get_vertices()) {
-        result["startTimes"] += {{"operation", {v.operation.jobId, v.operation.operationId}},
+        result["startTimes"] += {{"operation", {v.operation.jobId.value, v.operation.operationId}},
                                  {"time", ASAPST[v.id]}};
     }
 
@@ -268,19 +269,20 @@ delay FORPFSSPSD::Instance::getTrivialCompletionTimeLowerbound() {
 
     delay first_pass_processing_time = 0;
     delay second_pass_processing_time = 0;
-    unsigned int first_duplex = std::numeric_limits<unsigned int>::max();
+    std::optional<JobId> firstDuplex;
     for(unsigned int i = 0; i < getNumberOfJobs(); i++) {
+        const JobId jobId(i);
         // FIXME: this is created specifically for CPP cases:
 
-        if(first_duplex == std::numeric_limits<unsigned int>::max() && getPlexity(i) == Plexity::DUPLEX) {
-            first_duplex = i;
+        if (!firstDuplex && getPlexity(jobId) == Plexity::DUPLEX) {
+            firstDuplex = jobId;
         }
 
-        if(first_duplex != std::numeric_limits<unsigned int>::max()) {
-            if (m_dg->has_vertex({i, 1})) {
-                first_pass_processing_time += getProcessingTime({i,1});
+        if (firstDuplex) {
+            if (m_dg->has_vertex({jobId, 1})) {
+                first_pass_processing_time += getProcessingTime({jobId, 1});
             }
-            second_pass_processing_time += getProcessingTime({i,2});
+            second_pass_processing_time += getProcessingTime({jobId, 2});
             // TODO: also add half of the minimum incoming and outgoing setup times
         }
     }
@@ -288,9 +290,12 @@ delay FORPFSSPSD::Instance::getTrivialCompletionTimeLowerbound() {
     std::vector<delay> ASAPST = algorithm::LongestPath::initializeASAPST(*m_dg);
     algorithm::LongestPath::computeASAPST(*m_dg, ASAPST);
 
-    delay firstDuplexStartTime = ASAPST[m_dg->get_vertex({first_duplex, 1}).id];
+    delay firstDuplexStartTime = ASAPST.at(m_dg->get_source(MachineId(1)).id);
+    if (firstDuplex) {
+        firstDuplexStartTime = ASAPST[m_dg->get_vertex({*firstDuplex, 1}).id];
+    }
 
-    delay lastSheetUnloadTime = getSetupTime({getNumberOfJobs()-1, 2}, {getNumberOfJobs()-1, 3});
+    delay lastSheetUnloadTime = getSetupTime({m_jobsOutput.back(), 2}, {m_jobsOutput.back(), 3});
 
     delay lowerbound = firstDuplexStartTime
             + first_pass_processing_time
@@ -376,14 +381,14 @@ PartialSolution FORPFSSPSD::Instance::determine_partial_solution(std::vector<del
         }
         std::map<OperationId, JobId> lastJobForOperation;
         for (auto op : m_operationsMappedOnMachine.at(machine)) {
-            lastJobForOperation[op] = 0;
+            lastJobForOperation[op] = JobId(0);
         }
 
         bool done = false;
         const unsigned int maxIterations =
                 m_operationsMappedOnMachine.at(machine).size() * m_jobs.size();
         unsigned int iteration = 0;
-        unsigned int currentJob = -1;
+        JobId currentJob(-1);
         unsigned int currentOp = -1;
         bool first = true;
         while (!done) {
@@ -394,10 +399,12 @@ PartialSolution FORPFSSPSD::Instance::determine_partial_solution(std::vector<del
                                     machine));
             }
             delay earliestNextOpTime = std::numeric_limits<delay>::max();
-            unsigned int nextJob = std::numeric_limits<unsigned int>::max();
+            JobId nextJob(std::numeric_limits<unsigned int>::max());
             unsigned int nextOp = std::numeric_limits<unsigned int>::max();
             for (auto op : m_operationsMappedOnMachine.at(machine)) {
-                for (unsigned int j = lastJobForOperation.at(op); j < getNumberOfJobs(); j++) {
+                for (auto j = lastJobForOperation.at(op);
+                     static_cast<std::uint32_t>(j) < getNumberOfJobs();
+                     j++) {
 
                     if (m_dg->has_vertex({j, op})) {
                         // determine at what time this operation occurred
@@ -417,8 +424,7 @@ PartialSolution FORPFSSPSD::Instance::determine_partial_solution(std::vector<del
                 throw FmsSchedulerException("Could not determine the next operation...");
             }
 
-            if (nextJob == std::numeric_limits<unsigned int>::max()
-                || nextOp == std::numeric_limits<unsigned int>::max()) {
+            if (nextJob == JobId::max() || nextOp == std::numeric_limits<unsigned int>::max()) {
                 throw FmsSchedulerException("Could not determine the next job and operation...");
             }
 
@@ -449,7 +455,7 @@ PartialSolution FORPFSSPSD::Instance::determine_partial_solution(std::vector<del
 
             done = true;
             for (auto op : m_operationsMappedOnMachine.at(machine)) {
-                if (lastJobForOperation[op] != getNumberOfJobs()) {
+                if (static_cast<std::uint32_t>(lastJobForOperation.at(op)) != getNumberOfJobs()) {
                     done = false;
                 }
             }
@@ -459,17 +465,6 @@ PartialSolution FORPFSSPSD::Instance::determine_partial_solution(std::vector<del
     return PartialSolution({{m_reEntrantMachines.front(), edges}}, std::move(ASAPST));
 }
 
-std::tuple<std::vector<JobId>, JobOutMap> FORPFSSPSD::Instance::computeAllJobs() const {
-    std::vector<JobId> resultJobs(m_jobs.size());
-    JobOutMap resultJobIndices;
-    std::iota(resultJobs.begin(), resultJobs.end(), 0);
-
-    for (size_t i = 0; i < resultJobs.size(); ++i) {
-        resultJobIndices.emplace(resultJobs[i], i);
-    }
-    return {resultJobs, resultJobIndices};
-}
-
 PartialSolution Instance::loadSequence(std::istream &stream) const  {
     delayGraph graph = getDelayGraph();
     std::string line;
@@ -477,7 +472,7 @@ PartialSolution Instance::loadSequence(std::istream &stream) const  {
     DelayGraph::Edges sol_edges;
     while(std::getline(stream, line)) {
         std::istringstream line_stream(line);
-        FORPFSSPSD::operation operation{0, 0};
+        FORPFSSPSD::operation operation{JobId(0), 0};
         std::optional<std::reference_wrapper<DelayGraph::vertex>> prev;
         while(line_stream >> operation) {
             auto &current = graph.get_vertex(operation);
@@ -637,5 +632,10 @@ void FORPFSSPSD::Instance::computeJobsOutput() {
 
     // Output of jobs is defined by Id
     std::sort(m_jobsOutput.begin(), m_jobsOutput.end());
+
+    // Store output positions
+    for (std::size_t i = 0; i < m_jobsOutput.size(); ++i) {
+        m_jobToOutputPosition.emplace(m_jobsOutput.at(i), i);
+    }
 }
 

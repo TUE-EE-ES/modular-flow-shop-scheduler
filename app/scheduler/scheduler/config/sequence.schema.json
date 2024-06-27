@@ -5,7 +5,7 @@
     "type": "object",
     "oneOf": [
         {
-            "$ref": "#/definitions/basicSequenceFile"
+            "$ref": "#/definitions/schedulerOutputFile"
         }
     ],
     "definitions": {
@@ -70,7 +70,29 @@
                         }
                     }
                 }
-            }
+            },
+            "required": [
+                "modules"
+            ]
+        },
+        "schedulerOutputFile": {
+            "type": "object",
+            "properties": {
+                "sequence": {
+                    "type": "object",
+                    "oneOf": [
+                        {
+                            "$ref": "#/definitions/basicSequenceFile"
+                        },
+                        {
+                            "$ref": "#/definitions/modulesSequenceFile"
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "sequence"
+            ]
         }
     }
 }

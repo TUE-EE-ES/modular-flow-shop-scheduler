@@ -12,8 +12,11 @@ TEST(GraphBuilder, Simple) {
     const auto instance = FORPFSSPSDXmlParser("simple/0.xml").createFlowShop();
     const auto graph = DelayGraph::Builder::FORPFSSPSD(instance);
 
-    EXPECT_EQ(graph.get_edge(op{0, 0}, op{0, 1}).weight, 30);
-    EXPECT_EQ(graph.get_edge(op{0, 1}, op{0, 0}).weight, -30);
+    const op op1{FS::JobId{0}, FS::OperationId{0}};
+    const op op2{FS::JobId{0}, FS::OperationId{1}};
+
+    EXPECT_EQ(graph.get_edge(op1, op2).weight, 30);
+    EXPECT_EQ(graph.get_edge(op2, op1).weight, -30);
 }
 
 TEST(GraphBuilder, ModularSynthetic0) {

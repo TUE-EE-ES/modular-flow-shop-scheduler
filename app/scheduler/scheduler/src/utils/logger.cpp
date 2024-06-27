@@ -1,3 +1,5 @@
+#include "pch/containers.hpp"
+
 #include "utils/logger.h"
 
 #include <fmt/compile.h>
@@ -5,7 +7,7 @@
 
 LOGGER_LEVEL &increaseVerbosity(LOGGER_LEVEL &l) {
     switch (l) {
-    case LOGGER_LEVEL::FATAL:
+    case LOGGER_LEVEL::CRITICAL:
         return l = LOGGER_LEVEL::ERROR;
     case LOGGER_LEVEL::ERROR:
         return l = LOGGER_LEVEL::WARNING;

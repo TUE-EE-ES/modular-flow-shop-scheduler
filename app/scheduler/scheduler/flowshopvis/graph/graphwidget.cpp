@@ -41,7 +41,7 @@ GraphWidget::GraphWidget(const FORPFSSPSD::Instance &instance, QWidget *parent) 
             continue;
         }
         const auto &op = v.operation;
-        QPointF pos(100 * op.jobId, 200 * op.operationId);
+        QPointF pos(100 * op.jobId.value, 200 * op.operationId);
         QColor color(getColor(machineToIndex.at(instance.getMachine(op))));
 
         addNode(moduleId, op, pos, color, boundingbox);
@@ -65,8 +65,7 @@ void GraphWidget::setPartialSolution(const PartialSolution &ps,
             continue;
         }
 
-        Edge *edge = new Edge(nodes.at(vSrc.operation), nodes.at(vDst.operation), 0);
-        edge->setText(QString::number(e.weight));
+        Edge *edge = new Edge(nodes.at(vSrc.operation), nodes.at(vDst.operation), e.weight, 0);
         edge->setPen(QPen(Qt::black, 3));
         scene()->addItem(edge);
         boundingbox |= edge->boundingRect();
@@ -100,8 +99,7 @@ void GraphWidget::setPartialSolution(const PartialSolution &ps,
             bend = 30;
         }
 
-        Edge *edge = new Edge(srcNodeIt->second, dstNodeIt->second, bend);
-        edge->setText(QString::number(e.weight));
+        Edge *edge = new Edge(srcNodeIt->second, dstNodeIt->second, e.weight, bend);
         edge->setPen(QPen(Qt::black, 3));
         sc->addItem(edge);
         boundingbox |= edge->boundingRect();

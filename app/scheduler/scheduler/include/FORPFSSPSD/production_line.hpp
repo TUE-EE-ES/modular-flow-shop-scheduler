@@ -4,8 +4,12 @@
 #include "delay.h"
 #include "indices.hpp"
 #include "module.hpp"
-#include "operation.h"
 #include "utils/default_map.hpp"
+
+#include <cstddef>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace FORPFSSPSD {
 
@@ -180,6 +184,14 @@ public:
 
     [[nodiscard]] inline const FORPFSSPSD::Module &getFirstModule() const {
         return m_modules.at(getFirstModuleId());
+    }
+
+    [[nodiscard]] inline FORPFSSPSD::ModuleId getLastModuleId() const {
+        return m_moduleIds.back();
+    }
+
+    [[nodiscard]] inline const FORPFSSPSD::Module &getLastModule() const {
+        return m_modules.at(getLastModuleId());
     }
 
     /**

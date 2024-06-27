@@ -1,9 +1,9 @@
 #ifndef SCHEDULING_OPTION_H
 #define SCHEDULING_OPTION_H
 
-#include <utility>
+#include "delayGraph/edge.h"
 
-#include "delayGraph/delayGraph.h"
+#include <cstdint>
 
 namespace algorithm {
 /**

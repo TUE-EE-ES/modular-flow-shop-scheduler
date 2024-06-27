@@ -18,12 +18,12 @@ TEST(GRAPH, EmptyGraph) {
 
 TEST(GRAPH, SingleVertexGraph) {
     delayGraph dg;
-    VertexID v_id = dg.add_vertex(0U, 0U);
+    VertexID v_id = dg.add_vertex(FS::JobId(0U), 0U);
     EXPECT_EQ(dg.get_number_of_vertices(), 1U);
 
     const auto &v = dg.get_vertex(v_id);
 
-    EXPECT_EQ(v.operation.jobId, 0U);
+    EXPECT_EQ(v.operation.jobId, FS::JobId(0U));
     EXPECT_EQ(v.operation.operationId, 0U);
 
     auto e = dg.add_edge(v_id,v_id,1);
@@ -45,7 +45,7 @@ TEST(GRAPH, SmallGraphWithNoEdges) {
     const unsigned int numNodes = 5U;
     for(unsigned int i = 0; i < numNodes; i++) {
         EXPECT_EQ(dg.get_number_of_vertices(), i);
-        dg.add_vertex(i,i);
+        dg.add_vertex(FS::JobId(i),i);
         EXPECT_EQ(dg.get_number_of_vertices(), i+1);
     }
 
@@ -56,8 +56,8 @@ TEST(GRAPH, SmallGraphWithNoEdges) {
 
 TEST(GRAPH, TwoVertexCycle) {
     delayGraph dg;
-    auto vId1 = dg.add_vertex(0U, 0U);
-    auto vId2 = dg.add_vertex(0U, 1U);
+    auto vId1 = dg.add_vertex(FS::JobId(0U), 0U);
+    auto vId2 = dg.add_vertex(FS::JobId(0U), 1U);
     dg.add_edge(vId1, vId2, 1);
 
     auto &v1 = dg.get_vertex(vId1);
@@ -77,7 +77,7 @@ TEST(GRAPH, SmallTree) {
 
     const int numNodes = 8;
     for(unsigned int i = 0; i < numNodes; i++) {
-        dg.add_vertex(i,i);
+        dg.add_vertex(FS::JobId(i), FS::OperationId(i));
     }
     auto &vertices = dg.get_vertices();
     EXPECT_TRUE(vertices.at(0).get_incoming_edges().empty());
@@ -120,28 +120,29 @@ TEST(GRAPH, SmallTree) {
 TEST(GRAPH, JobSearch) {
     delayGraph dg;
 
-    dg.add_vertex(0U,0U);
-    dg.add_vertex(1U,1U);
-    dg.add_vertex(1U,2U);
-    dg.add_vertex(2U,1U);
-    dg.add_vertex(2U,2U);
-    dg.add_vertex(2U,3U);
+    dg.add_vertex(FS::JobId(0U), FS::OperationId(0U));
+    dg.add_vertex(FS::JobId(1U), FS::OperationId(1U));
+    dg.add_vertex(FS::JobId(1U), FS::OperationId(2U));
+    dg.add_vertex(FS::JobId(2U), FS::OperationId(1U));
+    dg.add_vertex(FS::JobId(2U), FS::OperationId(2U));
+    dg.add_vertex(FS::JobId(2U), FS::OperationId(3U));
 
-    EXPECT_EQ(dg.get_vertices(0).size(), 1U);
-    EXPECT_EQ(dg.get_vertices(1).size(), 2U);
-    EXPECT_EQ(dg.get_vertices(2).size(), 3U);
-    EXPECT_THROW((void) dg.get_vertices(3), FmsSchedulerException);
+    EXPECT_EQ(dg.get_vertices(FS::JobId(0)).size(), 1U);
+    EXPECT_EQ(dg.get_vertices(FS::JobId(1)).size(), 2U);
+    EXPECT_EQ(dg.get_vertices(FS::JobId(2)).size(), 3U);
+    EXPECT_THROW((void)dg.get_vertices(FS::JobId(3)), FmsSchedulerException);
 
-    EXPECT_EQ(dg.get_vertices({0,1,2}).size(), 6U);
-    EXPECT_EQ(dg.get_vertices({1,2}).size(), 5U);
-    EXPECT_EQ(dg.get_vertices({0,2}).size(), 4U);
-    EXPECT_THROW((void) dg.get_vertices({0, 3}), FmsSchedulerException);
+    EXPECT_EQ(dg.get_vertices({FS::JobId(0), FS::JobId(1), FS::JobId(2)}).size(), 6U);
+    EXPECT_EQ(dg.get_vertices({FS::JobId(1), FS::JobId(2)}).size(), 5U);
+    EXPECT_EQ(dg.get_vertices({FS::JobId(0), FS::JobId(2)}).size(), 4U);
+    EXPECT_THROW((void) dg.get_vertices({FS::JobId(0), FS::JobId(3)}), FmsSchedulerException);
 }
 
 TEST(GRAPH, Copy) {
     delayGraph dg;
 
-    constexpr std::array<FORPFSSPSD::operation, 3> ops{{{0, 0}, {1, 1}, {2, 2}}};
+    constexpr std::array<FORPFSSPSD::operation, 3> ops{
+            {{FS::JobId(0), 0}, {FS::JobId(1), 1}, {FS::JobId(2), 2}}};
     std::array<DelayGraph::VertexID, 3> ids{};
 
     for (std::size_t i = 0; i < ops.size(); i++) {

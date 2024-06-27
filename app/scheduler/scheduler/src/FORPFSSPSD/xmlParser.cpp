@@ -11,6 +11,9 @@
  * Initialization xml parser
  */
 
+#include "pch/containers.hpp"
+#include "pch/utils.hpp"
+
 #include "FORPFSSPSD/xmlParser.h"
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
@@ -20,13 +23,11 @@
 #include "fmsschedulerexception.h"
 #include "rapidxml.hpp"
 
-#include "pch/utils.hpp"
-
-#include <algorithm>
 #include <filesystem>
 #include <fmt/compile.h>
 #include <gsl/narrow>
-#include <iostream>
+#include <optional>
+#include <string>
 
 namespace fs = std::filesystem;
 using namespace FORPFSSPSD;

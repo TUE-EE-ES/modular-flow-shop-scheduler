@@ -1,9 +1,14 @@
+#ifndef COCKTAIL_LINE_SOLVER_HPP
+#define COCKTAIL_LINE_SOLVER_HPP
+
 #include "FORPFSSPSD/production_line.hpp"
-#include "broadcast_line_solver.hpp"
 #include "modular_args.hpp"
 #include "production_line_solution.hpp"
+#include "utils/distributed_scheduler_history.hpp"
 
+#include <cstdint>
 #include <nlohmann/json.hpp>
+#include <vector>
 
 namespace algorithm::CocktailLineSolver {
 struct SingleIterationResult {
@@ -14,8 +19,6 @@ struct SingleIterationResult {
     /// @details If the algorithm did not converge, this is not an empty string and
     /// contains the reason why. @p modulesResults is empty in this case.
     std::string error;
-    std::vector<FMS::ModulesSolutions> allResults;
-    std::vector<GlobalIntervals> allBounds;
 };
 
 /**
@@ -42,8 +45,11 @@ solve(FORPFSSPSD::ProductionLine &problemInstance, const commandLineArgs &args);
  */
 SingleIterationResult singleIteration(FORPFSSPSD::ProductionLine &instance,
                                       const commandLineArgs &args,
-                                      uint64_t iterations,
+                                      std::uint64_t iterations,
                                       bool convergedLowerBound,
-                                      const ModularArgs &argsMod);
+                                      const ModularArgs &argsMod,
+                                      FMS::DistributedSchedulerHistory &history);
 
 } // namespace algorithm::CocktailLineSolver
+
+#endif // COCKTAIL_LINE_SOLVER_HPP

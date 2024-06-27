@@ -47,7 +47,7 @@ ProductionLineGraphWidget::ProductionLineGraphWidget(
                 continue;
             }
             const auto &op = v.operation;
-            QPointF pos(100 * op.jobId, 200 * op.operationId);
+            QPointF pos(100 * op.jobId.value, 200 * op.operationId);
             pos += offset;
             maxY = std::max(maxY, pos.y());
 

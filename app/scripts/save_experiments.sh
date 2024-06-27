@@ -7,4 +7,5 @@ DATA_DIR="$(realpath "$SCRIPT_DIR/../data")"
 export RESTIC_REPOSITORY="$DATA_DIR/backup/restic"
 export RESTIC_PASSWORD="sam-fms"
 
-restic backup --host co29 --pack-size 50 --compression max "$DATA_DIR/run" "$DATA_DIR/gen"
+cd "$DATA_DIR"
+restic backup --host co29 --pack-size 50 --exclude "cache*.parquet" --compression max "run" "gen"

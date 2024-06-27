@@ -1,21 +1,18 @@
+#include "pch/containers.hpp"
+
 #include "solvers/iteratedgreedy.h"
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
 #include "FORPFSSPSD/indices.hpp"
-#include "FORPFSSPSD/operation.h"
 #include "delayGraph/builder.hpp"
 #include "delayGraph/delayGraph.h"
-#include "delayGraph/edge.h"
-#include "delayGraph/export_utilities.h"
-#include "environmentalselectionoperator.h"
-#include "geometricselectionoperator.h"
 #include "longest_path.h"
 #include "solvers/utils.hpp"
 
 #include <chrono>
+#include <cstdlib> /* srand, rand */
 #include <fmt/chrono.h>
 #include <fmt/compile.h>
-#include <stdlib.h>     /* srand, rand */
 #include <random>
 
 using namespace algorithm;

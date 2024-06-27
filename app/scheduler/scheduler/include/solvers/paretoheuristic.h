@@ -2,6 +2,12 @@
 #define PARETOHEURISTIC_H
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
+#include "delayGraph/delayGraph.h"
+#include "partialsolution.h"
+#include "schedulingoption.h"
+
+#include <utility>
+#include <vector>
 
 namespace algorithm {
 

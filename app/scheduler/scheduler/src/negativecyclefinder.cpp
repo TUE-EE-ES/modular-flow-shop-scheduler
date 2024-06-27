@@ -1,3 +1,5 @@
+#include "pch/containers.hpp"
+
 #include "negativecyclefinder.h"
 
 #include <stack>

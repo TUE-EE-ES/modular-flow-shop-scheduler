@@ -82,7 +82,7 @@ void ProductionLineWidget::open_bounds_clicked() {
     }
 
     auto jsonBounds = jsonProductionLine["bounds"];
-    auto bounds = algorithm::BroadcastLineSolver::allGlobalBoundsFromJSON(jsonBounds);
+    auto bounds = FS::allGlobalBoundsFromJSON(jsonBounds);
 
     m_boundsWidget->setBounds(std::move(bounds));
     m_boundsWidget->show();

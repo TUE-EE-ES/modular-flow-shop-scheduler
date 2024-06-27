@@ -6,13 +6,13 @@
 TEST(LOGGER, runtime) {
     LOG("Hello, world!");
     LOG("Hello, {}!", "world");
-    LOG_F("Hello, world");
+    LOG_C("Hello, world");
     LOG_E("Hello, world");
     LOG_W("Hello, world");
     LOG_I("Hello, world");
     LOG_D("Hello, world");
     LOG_T("Hello, world");
-    LOG_F("Hello, {}!", "world");
+    LOG_C("Hello, {}!", "world");
     LOG_E("Hello, {}!", "world");
     LOG_W("Hello, {}!", "world");
     LOG_I("Hello, {}!", "world");
@@ -22,7 +22,7 @@ TEST(LOGGER, runtime) {
 
 TEST(LOGGER, compiled) {
     LOG(FMT_COMPILE("Hello, {}!"), "world");
-    LOG_F(FMT_COMPILE("Hello, {}!"), "world");
+    LOG_C(FMT_COMPILE("Hello, {}!"), "world");
     LOG_E(FMT_COMPILE("Hello, {}!"), "world");
     LOG_W(FMT_COMPILE("Hello, {}!"), "world");
     LOG_I(FMT_COMPILE("Hello, {}!"), "world");

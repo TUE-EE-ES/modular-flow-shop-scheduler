@@ -1,3 +1,6 @@
+#include "pch/containers.hpp"
+#include "pch/utils.hpp"
+
 #include "solvers/branchbound.h"
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
@@ -9,8 +12,6 @@
 #include "longest_path.h"
 #include "solvers/forwardheuristic.h"
 #include "solvers/paretoheuristic.h"
-
-#include "pch/utils.hpp"
 
 #include <chrono>
 #include <fstream>
@@ -133,7 +134,7 @@ PartialSolution BranchBound::solve(FORPFSSPSD::Instance &problemInstance, const 
     // check wether the input graph is feasible or not
     if(!result.positiveCycle.empty())
     {
-        LOG(LOGGER_LEVEL::FATAL, "The input graph is infeasible. Aborting.");
+        LOG_C("The input graph is infeasible. Aborting.");
         throw FmsSchedulerException("The input graph is infeasible. Aborting.");
     }
 
@@ -155,12 +156,11 @@ PartialSolution BranchBound::solve(FORPFSSPSD::Instance &problemInstance, const 
 
     LOGGER_LEVEL old_level = Logger::getVerbosity();
     LOG(LOGGER_LEVEL::INFO, "Using INITIAL SCHEDULING to get initial result");
-    Logger::setVerbosity(LOGGER_LEVEL::FATAL);
 
     // The Branch & Bound algorithm can be seeded by creating any initial schedule (e.g., the 'stupid schedule', a bhcs/md-bhcs result)
     BranchBoundNode stupidScheduleNode(createStupidSchedule(problemInstance, reentrant_machine));
     BranchBoundNode bhcsNode(problemInstance, dg, ForwardHeuristic::solve(problemInstance, args));
-    LOG(LOGGER_LEVEL::FATAL, std::string() + "Seed with BHCS completed with makespan of " + std::to_string(bhcsNode.getMakespan()));
+    LOG_C("Seed with BHCS completed with makespan of {}", bhcsNode.getMakespan());
 
     // The Branch & Bound algorithm is seeded with the best result from the Pareto scheduler
     commandLineArgs argss = args;
@@ -172,7 +172,7 @@ PartialSolution BranchBound::solve(FORPFSSPSD::Instance &problemInstance, const 
             best = sol;
         }
     }
-    LOG(LOGGER_LEVEL::FATAL, std::string() + "Seed with MD-BHCS completed with makespan of " + std::to_string(best.getMakespan()));
+    LOG_C("Seed with MD-BHCS completed with makespan of {}", best.getMakespan());
 
     BranchBoundNode mdbhcsNode(problemInstance, dg, best);
 
@@ -181,11 +181,13 @@ PartialSolution BranchBound::solve(FORPFSSPSD::Instance &problemInstance, const 
         bestFoundNode = bhcsNode;
     }
     if(bestFoundNode.getMakespan() < open_nodes.back().getLowerbound()) {
-        LOG(LOGGER_LEVEL::FATAL, std::to_string(bestFoundNode.getMakespan()) + " is smaller than initial lowerbound " + std::to_string(open_nodes.back().getLowerbound()));
+        LOG_C("{} is smaller than initial lowerbound {}",
+              bestFoundNode.getMakespan(),
+              open_nodes.back().getLowerbound());
         throw FmsSchedulerException("Either the initial lowerbound or the initial solution is incorrect; found a (valid?) solution that is lower than the initial lower bound");
     }
     Logger::setVerbosity(old_level);
-    LOG(LOGGER_LEVEL::FATAL, "Finished INITIAL SCHEDULING heuristic with makespan " + std::to_string(bestFoundNode.getMakespan()));
+    LOG_C("Finished INITIAL SCHEDULING heuristic with makespan {}", bestFoundNode.getMakespan());
 
     auto start = FMS::getCpuTime();
 
@@ -224,7 +226,7 @@ PartialSolution BranchBound::solve(FORPFSSPSD::Instance &problemInstance, const 
 
         if(lowerbound >= bestFoundNode.getMakespan()) {
             // found an optimal solution, finish execution!
-            LOG(LOGGER_LEVEL::FATAL, "Optimal solution found");
+            LOG_C("Optimal solution found");
             return PartialSolution(bestFoundNode.getSolution().getChosenEdgesPerMachine(),
                                    bestFoundNode.getASAPST(problemInstance, dg));
         }
@@ -258,7 +260,7 @@ PartialSolution BranchBound::solve(FORPFSSPSD::Instance &problemInstance, const 
 
             std::cout << std::setprecision(precision);
             if (time_spent > args.timeOut) {
-                LOG(LOGGER_LEVEL::FATAL, "Time limit exceeded");
+                LOG_C("Time limit exceeded");
                 return {bestFoundNode.getSolution().getChosenEdgesPerMachine(),
                         bestFoundNode.getASAPST(problemInstance, dg)};
             }
@@ -273,8 +275,10 @@ PartialSolution BranchBound::solve(FORPFSSPSD::Instance &problemInstance, const 
 
         bool scheduled_one_operation = false;
         // schedule one eligible node
-        for(unsigned int i = 0; i < problemInstance.getNumberOfJobs() - 1; i++) {
+        for(std::size_t i = 0; i < problemInstance.getNumberOfJobs() - 1; i++) {
             if(scheduled_one_operation) break;
+
+            const auto jobId = problemInstance.getJobAtOutputPosition(i);
 
             bool first = true; // First operation is already included in the initial sequence
             for(unsigned int op : ops) {
@@ -283,9 +287,9 @@ PartialSolution BranchBound::solve(FORPFSSPSD::Instance &problemInstance, const 
                             dg.get_vertex((*solution.first_possible_edge(reentrant_machine)).src)
                                     .operation.jobId;
                     if (dg.is_source((*solution.first_possible_edge(reentrant_machine)).src)
-                        || i > firstPossibleJob) {
+                        || jobId > firstPossibleJob) {
                         // schedule the next operation
-                        const auto &eligibleOperation = dg.get_vertex({i, op});
+                        const auto &eligibleOperation = dg.get_vertex({jobId, op});
                         auto newSolutions = scheduleOneOperation(dg, problemInstance, solution, eligibleOperation);
 
                          if(i + 2 == problemInstance.getNumberOfJobs()) { // if it was the (second-to-)last sheet to schedule (last second pass is already included)
@@ -309,17 +313,14 @@ PartialSolution BranchBound::solve(FORPFSSPSD::Instance &problemInstance, const 
                                 std::string edges2 = chosenEdgesToString(s, dg);
 
                                 if(newNode.getLowerbound() < node.getLowerbound()) {
-                                    LOG(LOGGER_LEVEL::FATAL, "Lower bound decreased by inserting an operation!");
-                                    LOG(LOGGER_LEVEL::FATAL,
-                                        fmt::format("{} -> {}",
-                                                    dg.get_vertex((*s.first_possible_edge(
-                                                                           reentrant_machine))
-                                                                          .src)
-                                                            .operation,
-                                                    dg.get_vertex((*s.first_possible_edge(
-                                                                           reentrant_machine))
-                                                                          .dst)
-                                                            .operation));
+                                    LOG_C("Lower bound decreased by inserting an operation!");
+                                    LOG_C("{} -> {}",
+                                          dg.get_vertex(
+                                                    (*s.first_possible_edge(reentrant_machine)).src)
+                                                  .operation,
+                                          dg.get_vertex(
+                                                    (*s.first_possible_edge(reentrant_machine)).dst)
+                                                  .operation);
                                     LOG(LOGGER_LEVEL::INFO, "original node: "+ edges1 + ": " + std::to_string(node.getLowerbound()));
                                     LOG(LOGGER_LEVEL::INFO, "new node: " + edges2 + ": " + std::to_string(newNode.getLowerbound()));
 
@@ -357,9 +358,9 @@ PartialSolution BranchBound::solve(FORPFSSPSD::Instance &problemInstance, const 
     stream << bestFoundNode.getMakespan();
     stream.close();
 
-    LOG(LOGGER_LEVEL::FATAL, "Optimal solution found (no more branches left to explore)");
-    return PartialSolution(bestFoundNode.getSolution().getChosenEdgesPerMachine(),
-                           bestFoundNode.getASAPST(problemInstance, dg));
+    LOG_C("Optimal solution found (no more branches left to explore)");
+    return {bestFoundNode.getSolution().getChosenEdgesPerMachine(),
+            bestFoundNode.getASAPST(problemInstance, dg)};
 }
 
 std::vector<PartialSolution>
@@ -479,36 +480,38 @@ BranchBoundNode BranchBound::createStupidSchedule(FORPFSSPSD::Instance &problemI
 
     // Do STUPID SCHEDULING: i.e. one product at a time in the re-entrant loop
     for(unsigned int i = 0; i < problemInstance.getNumberOfJobs() - 1; i++ ) { // for each except the last job
+        const auto jobId = problemInstance.getJobAtOutputPosition(i);
+        const auto jobIdNext = problemInstance.getJobAtOutputPosition(i+1);
 
-        if(problemInstance.getPlexity(i) == FORPFSSPSD::Plexity::SIMPLEX) {
-            if(problemInstance.getPlexity(i+1) == FORPFSSPSD::Plexity::SIMPLEX) {
+        if(problemInstance.getPlexity(jobId) == FORPFSSPSD::Plexity::SIMPLEX) {
+            if(problemInstance.getPlexity(jobIdNext) == FORPFSSPSD::Plexity::SIMPLEX) {
                 // SIMPLEX - SIMPLEX
-                const auto &src = dg.get_vertex({i, second_pass});
-                const auto &dst = dg.get_vertex({i + 1, second_pass});
-                stupid_sequence.push_back(edge(src.id, dst.id, problemInstance.query(src, dst)));
+                const auto &src = dg.get_vertex({jobId, second_pass});
+                const auto &dst = dg.get_vertex({jobIdNext, second_pass});
+                stupid_sequence.emplace_back(src.id, dst.id, problemInstance.query(src, dst));
 
             } else { // i+1 is DUPLEX
                 // SIMPLEX - DUPLEX
-                const auto &src = dg.get_vertex({i, second_pass});
-                const auto &dst = dg.get_vertex({i + 1, first_pass});
-                stupid_sequence.push_back(edge(src.id, dst.id, problemInstance.query(src, dst)));
+                const auto &src = dg.get_vertex({jobId, second_pass});
+                const auto &dst = dg.get_vertex({jobIdNext, first_pass});
+                stupid_sequence.emplace_back(src.id, dst.id, problemInstance.query(src, dst));
             }
         } else { // i is DUPLEX
-            const auto &src = dg.get_vertex({i, first_pass});
-            const auto &dst = dg.get_vertex({i, second_pass});
-            stupid_sequence.push_back(edge(src.id, dst.id, problemInstance.query(src, dst)));
+            const auto &src = dg.get_vertex({jobId, first_pass});
+            const auto &dst = dg.get_vertex({jobIdNext, second_pass});
+            stupid_sequence.emplace_back(src.id, dst.id, problemInstance.query(src, dst));
 
-            if(problemInstance.getPlexity(i+1) == FORPFSSPSD::Plexity::SIMPLEX) {
+            if(problemInstance.getPlexity(jobIdNext) == FORPFSSPSD::Plexity::SIMPLEX) {
                 // DUPLEX - SIMPLEX
-                const auto &src = dg.get_vertex({i, second_pass});
-                const auto &dst = dg.get_vertex({i + 1, second_pass});
-                stupid_sequence.push_back(edge(src.id, dst.id, problemInstance.query(src, dst)));
+                const auto &src = dg.get_vertex({jobId, second_pass});
+                const auto &dst = dg.get_vertex({jobIdNext, second_pass});
+                stupid_sequence.emplace_back(src.id, dst.id, problemInstance.query(src, dst));
             } else { // i+1 is DUPLEX
                 // DUPLEX - DUPLEX
 
-                const auto &src = dg.get_vertex({i, second_pass});
-                const auto &dst = dg.get_vertex({i + 1, first_pass});
-                stupid_sequence.push_back(edge(src.id, dst.id, problemInstance.query(src, dst)));
+                const auto &src = dg.get_vertex({jobId, second_pass});
+                const auto &dst = dg.get_vertex({jobIdNext, first_pass});
+                stupid_sequence.emplace_back(src.id, dst.id, problemInstance.query(src, dst));
             }
         }
     }
@@ -528,30 +531,23 @@ BranchBound::scheduleOneOperation(delayGraph &dg,
     auto reEntrantMachine = problem.getReEntrantMachines().front();
     LOG(fmt::format("Starting from current solution {}", solution));
 
-#if 0
-    std::cout << "beginning of iteration (after reduce):"<< std::endl;
-    for(auto some : currentGeneration) {
-        std::cout << some << std::endl;
-    }
-#endif
     // create all options that are potentially feasible:
     auto [last_potentially_feasible_option, options] = ForwardHeuristic::createOptions(
             dg,problem, solution, eligibleOperation, reEntrantMachine);
 
     // update the ASAPTimes for the coming window, so that we have enough information to compute the ranking
-    const unsigned int job_start = eligibleOperation.operation.jobId;
+    const auto job_start = eligibleOperation.operation.jobId;
     std::vector<delay> ASAPTimes = solution.getASAPST();
     LongestPath::computeASAPST(
             dg,
             ASAPTimes,
-            dg.cget_vertices(max(job_start, 1u) - 1),
+            dg.cget_vertices(max(job_start, FS::JobId(1)) - 1),
             dg.cget_vertices(job_start,
                              dg.get_vertex(last_potentially_feasible_option.dst).operation.jobId));
 
     if(options.empty()) {
         export_utilities::saveAsTikz(problem, solution, "no_options_left.tex");
-        LOG(LOGGER_LEVEL::FATAL,
-            fmt::format("No options could be made for {}", eligibleOperation.operation));
+        LOG_C("No options could be made for {}", eligibleOperation.operation);
         throw FmsSchedulerException("Unable to create any option!");
     }
 

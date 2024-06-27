@@ -4,7 +4,6 @@
 #include "utils/commandLine.h"
 #include "utils/time.h"
 
-#include <cstdint>
 #include <string_view>
 
 struct ModularArgs {

@@ -2,6 +2,7 @@
 #define UTILS_STRINGS_HPP
 
 #include <string>
+#include <string_view>
 
 namespace FMS {
 

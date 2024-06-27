@@ -3,6 +3,7 @@
 #include "utils/runner.h"
 
 #include <FORPFSSPSD/boundary.hpp>
+#include <FORPFSSPSD/bounds.hpp>
 #include <FORPFSSPSD/xmlParser.h>
 #include <filesystem>
 #include <fmsschedulerexception.h>
@@ -30,42 +31,42 @@ TEST_F(Modular, modular10Broadcast) {
     m_args.modularAlgorithm = ModularAlgorithmType::BROADCAST;
     auto [solutions, _] = TestUtils::runLine(m_args, "modular/synthetic/1/0.xml");
     ASSERT_GT(solutions.size(), 0);
-    EXPECT_EQ(solutions[0].getMakespan(), 1050);
+    EXPECT_EQ(solutions[0].getMakespan(), 1080);
 }
 
 TEST_F(Modular, modular10Cocktail) {
     m_args.modularAlgorithm = ModularAlgorithmType::COCKTAIL;
     auto [solutions, _] = TestUtils::runLine(m_args, "modular/synthetic/1/0.xml");
     ASSERT_GT(solutions.size(), 0);
-    EXPECT_EQ(solutions[0].getMakespan(), 1200);
+    EXPECT_EQ(solutions[0].getMakespan(), 1230);
 }
 
 TEST_F(Modular, bookletB10Broadcast) {
     m_args.modularAlgorithm = ModularAlgorithmType::BROADCAST;
     auto [solutions, _] = TestUtils::runLine(m_args, "modular/printer_cases/bookletB/10.xml");
     ASSERT_GT(solutions.size(), 0);
-    EXPECT_EQ(solutions[0].getMakespan(), 79144388);
+    EXPECT_EQ(solutions[0].getMakespan(), 79802388);
 }
 
 TEST_F(Modular, bookletB10Cocktail) {
     m_args.modularAlgorithm = ModularAlgorithmType::COCKTAIL;
     auto [solutions, _] = TestUtils::runLine(m_args, "modular/printer_cases/bookletB/10.xml");
     ASSERT_GT(solutions.size(), 0);
-    EXPECT_EQ(solutions[0].getMakespan(), 79144388);
+    EXPECT_EQ(solutions[0].getMakespan(), 79802388);
 }
 
 TEST_F(Modular, bookletA0Broadcast) {
     m_args.modularAlgorithm = ModularAlgorithmType::BROADCAST;
     auto [solutions, _] = TestUtils::runLine(m_args, "modular/printer_cases/bookletA/0.xml");
     ASSERT_GT(solutions.size(), 0);
-    EXPECT_EQ(solutions[0].getMakespan(), 56809882);
+    EXPECT_EQ(solutions[0].getMakespan(), 57196882);
 }
 
 TEST_F(Modular, bookletA0Cocktail) {
     m_args.modularAlgorithm = ModularAlgorithmType::COCKTAIL;
     auto [solutions, _] = TestUtils::runLine(m_args, "modular/printer_cases/bookletA/0.xml");
     ASSERT_GT(solutions.size(), 0);
-    EXPECT_EQ(solutions[0].getMakespan(), 56809882);
+    EXPECT_EQ(solutions[0].getMakespan(), 57196882);
 }
 
 TEST_F(Modular, nonTerminating) {
@@ -86,26 +87,40 @@ TEST_F(Modular, convergenceDetection) {
     auto parser = TestUtils::checkArguments(m_args, "modular/synthetic/1/0.xml");
     auto line = parser.createProductionLine();
 
-    algorithm::GlobalIntervals intervals{
+    GlobalBounds bounds{
             {ModuleId(0),
              {{},
-              {{0, {{1, {100, 1000}}, {2, {100, 1000}}, {3, {100, 1000}}, {4, {100, 1000}}}},
-               {1, {{2, {100, 1000}}, {3, {100, 1000}}, {4, {100, 1000}}}},
-               {2, {{3, {100, 1000}}, {4, {100, 1000}}}},
-               {3, {{4, {100, 1000}}}}}}},
+              {{FS::JobId(0),
+                {{FS::JobId(1), {100, 1000}},
+                 {FS::JobId(2), {100, 1000}},
+                 {FS::JobId(3), {100, 1000}},
+                 {FS::JobId(4), {100, 1000}}}},
+               {FS::JobId(1),
+                {{FS::JobId(2), {100, 1000}},
+                 {FS::JobId(3), {100, 1000}},
+                 {FS::JobId(4), {100, 1000}}}},
+               {FS::JobId(2), {{FS::JobId(3), {100, 1000}}, {FS::JobId(4), {100, 1000}}}},
+               {FS::JobId(3), {{FS::JobId(4), {100, 1000}}}}}}},
             {ModuleId(1),
-             {{{0, {{1, {100, 1000}}, {2, {100, 1000}}, {3, {100, 1000}}, {4, {100, 1000}}}},
-               {1, {{2, {100, 1000}}, {3, {100, 1000}}, {4, {100, 1000}}}},
-               {2, {{3, {100, 1000}}, {4, {100, 1000}}}},
-               {3, {{4, {100, 1000}}}}},
+             {{{FS::JobId(0),
+                {{FS::JobId(1), {100, 1000}},
+                 {FS::JobId(2), {100, 1000}},
+                 {FS::JobId(3), {100, 1000}},
+                 {FS::JobId(4), {100, 1000}}}},
+               {FS::JobId(1),
+                {{FS::JobId(2), {100, 1000}},
+                 {FS::JobId(3), {100, 1000}},
+                 {FS::JobId(4), {100, 1000}}}},
+               {FS::JobId(2), {{FS::JobId(3), {100, 1000}}, {FS::JobId(4), {100, 1000}}}},
+               {FS::JobId(3), {{FS::JobId(4), {100, 1000}}}}},
               {}}}};
 
-    const auto [translated, converged] = BroadcastLineSolver::translateBounds(line, intervals);
+    const auto [translated, converged] = BroadcastLineSolver::translateBounds(line, bounds);
     EXPECT_TRUE(converged);
 
-    intervals[ModuleId(0)].out.at(0).at(1) = {100, 1001};
+    bounds[ModuleId(0)].out.at(FS::JobId(0)).at(FS::JobId(1)) = {100, 1001};
 
-    const auto [translated2, converged2] = BroadcastLineSolver::translateBounds(line, intervals);
+    const auto [translated2, converged2] = BroadcastLineSolver::translateBounds(line, bounds);
     EXPECT_FALSE(converged2);
 }
 
@@ -114,35 +129,45 @@ TEST_F(Modular, convergenceDetectionNull) {
     auto parser = TestUtils::checkArguments(m_args, "modular/synthetic/1/0.xml");
     auto line = parser.createProductionLine();
 
-    algorithm::GlobalIntervals intervals{
+    const GlobalBounds bounds{
             {ModuleId(0),
              {{},
-              {{0, {{1, {100, 1000}}, {2, {100, 1000}}, {3, {100, 1000}}, {4, {100, 1000}}}},
-               {1, {{2, {100, 1000}}, {3, {100, 1000}}, {4, {100, 1000}}}},
-               {2, {{3, {100, 1000}}, {4, {100, 1000}}}},
-               {3, {{4, {100, 1000}}}}}}},
+              {{FS::JobId(0),
+                {{FS::JobId(1), {100, 1000}},
+                 {FS::JobId(2), {100, 1000}},
+                 {FS::JobId(3), {100, 1000}},
+                 {FS::JobId(4), {100, 1000}}}},
+               {FS::JobId(1),
+                {{FS::JobId(2), {100, 1000}},
+                 {FS::JobId(3), {100, 1000}},
+                 {FS::JobId(4), {100, 1000}}}},
+               {FS::JobId(2), {{FS::JobId(3), {100, 1000}}, {FS::JobId(4), {100, 1000}}}},
+               {FS::JobId(3), {{FS::JobId(4), {100, 1000}}}}}}},
             {ModuleId(1),
-             {{{0,
-                {{1, TimeInterval::Empty()},
-                 {2, TimeInterval::Empty()},
-                 {3, TimeInterval::Empty()},
-                 {4, TimeInterval::Empty()}}},
-               {1, {{2, {100, 1000}}, {3, {100, 1000}}, {4, {100, 1000}}}},
-               {2, {{3, {100, 1000}}, {4, {100, 1000}}}},
-               {3, {{4, {100, 1000}}}}},
+             {{{FS::JobId(0),
+                {{FS::JobId(1), TimeInterval::Empty()},
+                 {FS::JobId(2), TimeInterval::Empty()},
+                 {FS::JobId(3), TimeInterval::Empty()},
+                 {FS::JobId(4), TimeInterval::Empty()}}},
+               {FS::JobId(1),
+                {{FS::JobId(2), {100, 1000}},
+                 {FS::JobId(3), {100, 1000}},
+                 {FS::JobId(4), {100, 1000}}}},
+               {FS::JobId(2), {{FS::JobId(3), {100, 1000}}, {FS::JobId(4), {100, 1000}}}},
+               {FS::JobId(3), {{FS::JobId(4), {100, 1000}}}}},
               {}}}};
 
-    const auto [translated, converged] = BroadcastLineSolver::translateBounds(line, intervals);
+    const auto [translated, converged] = BroadcastLineSolver::translateBounds(line, bounds);
     EXPECT_TRUE(converged);
 }
 
 TEST_F(Modular, saveAndRestoreBounds) {
     using namespace FORPFSSPSD;
 
-    std::vector<algorithm::GlobalIntervals> intervals;
+    std::vector<GlobalBounds> intervals;
 
     for (std::size_t iters = 0; iters < 3; ++iters) {
-        algorithm::GlobalIntervals global;
+        GlobalBounds global;
         for (std::size_t i = 0; i < 4; ++i) {
             const ModuleId moduleId(i);
             for (std::size_t j1 = 0; j1 < 4; ++j1) {
@@ -160,10 +185,23 @@ TEST_F(Modular, saveAndRestoreBounds) {
         intervals.push_back(std::move(global));
     }
 
-    nlohmann::json json = BroadcastLineSolver::boundsToJSON(intervals);
-    auto restored = BroadcastLineSolver::allGlobalBoundsFromJSON(json);
+    nlohmann::json json = FORPFSSPSD::toJSON(intervals);
+    auto restored = FORPFSSPSD::allGlobalBoundsFromJSON(json);
 
     EXPECT_EQ(intervals, restored);
+}
+
+TEST_F(Modular, cocktailConvergence) {
+    // This test checks whether the convergence process of cocktail is correct. It was not
+    // and we were always "converging" in 2 iterations :/
+    using namespace FORPFSSPSD;
+
+    m_args.modularAlgorithm = ModularAlgorithmType::COCKTAIL;
+    constexpr const std::string_view file = "modular/printer_cases/bookletABUniform/54.xml";
+    auto [solutions, data] = TestUtils::runLine(m_args, file);
+    ASSERT_GT(solutions.size(), 0);
+    EXPECT_EQ(solutions[0].getMakespan(), 95687606);
+    EXPECT_EQ(data["iterations"], 3);
 }
 
 // NOLINTEND(*-magic-numbers,*-non-private-*)

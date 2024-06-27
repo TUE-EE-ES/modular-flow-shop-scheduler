@@ -2,9 +2,12 @@
 #define DELAY_GRAPH_EXPORT_UTILITIES_H
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
+#include "delayGraph/delayGraph.h"
 #include "longest_path.h"
+#include "partialsolution.h"
 
-#include "pch/containers.hpp"
+#include <string>
+#include <vector>
 
 namespace DelayGraph::export_utilities {
 std::vector<edge> extract_longest_path(const algorithm::LongestPathResult &lpt,

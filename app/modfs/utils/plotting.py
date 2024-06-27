@@ -14,16 +14,20 @@ DEFAULT_LABELS = {
     "iterations": "Number of iterations",
     "jobs": "Number of jobs",
     "makespan": "Makespan",
+    "relative_makespan": "Relative Makespan",
     "modular_algorithm": "Algorithm",
     "modules": "# modules",
     "time_per_iteration": "Execution time (ms) per iteration",
     "time_per_job": "Execution time (ms) per job",
     "timeout": "Timeout",
-    "total_time": "Total time (ms)",
+    "total_time": "Run time (ms)",
     "group": "Benchmark",
     "backtrack": "Monolithic",
     "cocktail": "Modular Cocktail",
     "broadcast": "Modular Broadcast",
+    "time_limit": "Time Limit (s)",
+    "optimality_gap": "Optimality Gap",
+    "optimality_ratio": "Optimality Ratio",
 }
 
 
@@ -67,6 +71,13 @@ def line_labels(data: Optional[pd.DataFrame | pd.Series] = None, **kwargs) -> Ba
     )
 
 
+class PlotType(Enum):
+    """Type of plot to use. Used by some functions"""
+
+    BOX = auto()
+    BAR = auto()
+
+
 def _plot_boxy_defaults(func: Callable = px.box, **kwargs) -> BaseFigure:
     return func(
         **{
@@ -81,11 +92,20 @@ def _plot_boxy_defaults(func: Callable = px.box, **kwargs) -> BaseFigure:
     )
 
 
-class PlotType(Enum):
-    """Type of plot to use. Used by some functions"""
+def plot_boxy(
+    data: Optional[pd.DataFrame | pd.Series] = None, plot_type: PlotType = PlotType.BAR, **kwargs
+) -> BaseFigure:
+    """Plot a box graph with the default labels."""
+    if data is not None:
+        kwargs["data_frame"] = data
 
-    BOX = auto()
-    BAR = auto()
+    match plot_type:
+        case PlotType.BAR:
+            return _plot_boxy_defaults(func=px.bar, **kwargs)
+        case PlotType.BOX:
+            return _plot_boxy_defaults(func=px.box, **kwargs)
+
+    return _plot_boxy_defaults(**kwargs)
 
 
 def add_timeout(df: pd.DataFrame) -> pd.DataFrame:

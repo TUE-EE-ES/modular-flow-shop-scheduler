@@ -8,14 +8,16 @@
 #include "FORPFSSPSD/FORPFSSPSD.h"
 #include "FORPFSSPSD/operation.h"
 #include "boundary.hpp"
+#include "bounds.hpp"
 #include "indices.hpp"
 
-#include "pch/containers.hpp"
+#include <optional>
+#include <set>
+#include <string>
 
 namespace FORPFSSPSD {
 
 /// Relates two jobs to the interval between them.
-using IntervalSpec = std::unordered_map<JobId, std::unordered_map<JobId, TimeInterval>>;
 
 /**
  * @brief Basic struct containing information about a module needed in order to initialize it.

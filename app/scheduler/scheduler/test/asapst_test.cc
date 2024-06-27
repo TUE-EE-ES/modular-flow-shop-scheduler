@@ -15,7 +15,7 @@ std::tuple<FORPFSSPSD::JobOperations, FORPFSSPSD::OperationMachineMap>
 createDefaultOps(std::uint32_t numJobs, std::uint32_t numOpsPerJob) {
     FORPFSSPSD::JobOperations jobs;
     FORPFSSPSD::OperationMachineMap opMachineMap;
-    for (std::uint32_t jobId = 0; jobId < numJobs; ++jobId) {
+    for (FS::JobId jobId(0); jobId.value < numJobs; ++jobId) {
         FORPFSSPSD::OperationsVector jobOps;
         for (std::uint32_t opId = 0; opId < numOpsPerJob; ++opId) {
             FORPFSSPSD::operation op{jobId, opId};
@@ -79,11 +79,17 @@ TEST(ASAPST, TightDeadlinesFlowShop) {
             "test",
             std::move(jobs),
             std::move(opMachineMap),
-            {{{{0, 0}, 1}, {{1, 0}, 2}, {{2, 0}, 3}, {{3, 0}, 4}}, 1},
+            {{{{FS::JobId(0), FS::OperationId(0)}, 1},
+              {{FS::JobId(1), FS::OperationId(0)}, 2},
+              {{FS::JobId(2), FS::OperationId(0)}, 3},
+              {{FS::JobId(3), FS::OperationId(0)}, 4}},
+             1},
             {{}, 0},
             {},
             {},
-            {{{{1, 0}, {{{0, 0}, 1}}}, {{2, 0}, {{{1, 0}, 2}}}, {{3, 0}, {{{2, 0}, 3}}}}},
+            {{{{FS::JobId(1), FS::OperationId(0)}, {{{FS::JobId(0), FS::OperationId(0)}, 1}}},
+              {{FS::JobId(2), FS::OperationId(0)}, {{{FS::JobId(1), FS::OperationId(0)}, 2}}},
+              {{FS::JobId(3), FS::OperationId(0)}, {{{FS::JobId(2), FS::OperationId(0)}, 3}}}}},
             {},
             {},
             0,
@@ -104,18 +110,23 @@ TEST(ASAPST, TightDeadlinesFlowShop) {
 
 TEST(ASAPST, InfeasibleDeadlinesFlowShop) {
     auto [jobs, opMachineMap] = createDefaultOps(4, 1);
-    FORPFSSPSD::Instance f("test",
-                           std::move(jobs),
-                           std::move(opMachineMap),
-                           {{{{0, 0}, 1}, {{1, 0}, 2}, {{2, 0}, 3}, {{3, 0}, 4}}, 1},
-                           {{}, 0},
-                           {},
-                           {},
-                           {{{{1, 0}, {{{0, 0}, 0}}}}},
-                           {},
-                           {},
-                           0,
-                           0);
+    FORPFSSPSD::Instance f(
+            "test",
+            std::move(jobs),
+            std::move(opMachineMap),
+            {{{{FS::JobId(0), FS::OperationId(0)}, 1},
+              {{FS::JobId(1), FS::OperationId(0)}, 2},
+              {{FS::JobId(2), FS::OperationId(0)}, 3},
+              {{FS::JobId(3), FS::OperationId(0)}, 4}},
+             1},
+            {{}, 0},
+            {},
+            {},
+            {{{{FS::JobId(1), FS::OperationId(0)}, {{{FS::JobId(0), FS::OperationId(0)}, 0}}}}},
+            {},
+            {},
+            0,
+            0);
 
     auto dg = Builder::FORPFSSPSD(f);
     auto res = algorithm::LongestPath::initializeASAPST(dg);
@@ -128,21 +139,26 @@ TEST(ASAPST, InfeasibleDeadlinesFlowShop) {
 TEST(ASAPST, FixDeadlinesTest) {
 
     auto [jobs, opMachineMap] = createDefaultOps(4, 2);
-    FORPFSSPSD::Instance f("fix_deadlines",
-                           std::move(jobs),
-                           std::move(opMachineMap),
-                           {{{{0, 0}, 1}, {{1, 0}, 2}, {{2, 0}, 3}, {{3, 0}, 4}}, 1},
-                           {{}, 0},
-                           {},
-                           {},
-                           {{{{0, 1}, {{{0, 0}, 10}}},
-                             {{1, 1}, {{{1, 0}, 10}}},
-                             {{2, 1}, {{{2, 0}, 10}}},
-                             {{3, 1}, {{{3, 0}, 10}}}}},
-                           {},
-                           {},
-                           0,
-                           0);
+    FORPFSSPSD::Instance f(
+            "fix_deadlines",
+            std::move(jobs),
+            std::move(opMachineMap),
+            {{{{FS::JobId(0), FS::OperationId(0)}, 1},
+              {{FS::JobId(1), FS::OperationId(0)}, 2},
+              {{FS::JobId(2), FS::OperationId(0)}, 3},
+              {{FS::JobId(3), FS::OperationId(0)}, 4}},
+             1},
+            {{}, 0},
+            {},
+            {},
+            {{{{FS::JobId(0), FS::OperationId(1)}, {{{FS::JobId(0), FS::OperationId(0)}, 10}}},
+              {{FS::JobId(1), FS::OperationId(1)}, {{{FS::JobId(1), FS::OperationId(0)}, 10}}},
+              {{FS::JobId(2), FS::OperationId(1)}, {{{FS::JobId(2), FS::OperationId(0)}, 10}}},
+              {{FS::JobId(3), FS::OperationId(1)}, {{{FS::JobId(3), FS::OperationId(0)}, 10}}}}},
+            {},
+            {},
+            0,
+            0);
 
     auto dg = Builder::FORPFSSPSD(f);
     auto res = algorithm::LongestPath::initializeASAPST(dg);
@@ -154,7 +170,7 @@ TEST(ASAPST, FixDeadlinesTest) {
 
     // fix deadlines and setup times for some part
     for (vertex &v : dg.get_vertices()) {
-        if (v.operation.jobId >= 2) {
+        if (v.operation.jobId.value >= 2) {
             continue;
         }
         for (auto &[dst, weight] : v.get_outgoing_edges()) {
@@ -167,14 +183,18 @@ TEST(ASAPST, FixDeadlinesTest) {
     }
 
     // TODO: if in fixed area, do a feasibility check based on the calculated ASAPST
-    auto e = dg.add_edge(dg.get_vertex({3, 0}), dg.get_vertex({2, 1}), 8);
+    auto e = dg.add_edge(FS::operation{FS::JobId(3), FS::OperationId(0)},
+                         FS::operation{FS::JobId(2), FS::OperationId(1)},
+                         8);
 
     {
         auto result = algorithm::LongestPath::computeASAPST(
-                dg, res, dg.cget_vertices(2), dg.cget_vertices(3));
+                dg, res, dg.cget_vertices(FS::JobId(2)), dg.cget_vertices(FS::JobId(3)));
         ASSERT_FALSE(result.positiveCycle.empty());
     }
-    dg.add_edge(FORPFSSPSD::operation{3,0}, FORPFSSPSD::operation{2,1}, 3);
+    dg.add_edge(FS::operation{FS::JobId(3), FS::OperationId(0)},
+                FS::operation{FS::JobId(2), FS::OperationId(1)},
+                3);
     res = algorithm::LongestPath::initializeASAPST(dg);
     {
         auto result = algorithm::LongestPath::computeASAPST(dg, res);
@@ -182,12 +202,17 @@ TEST(ASAPST, FixDeadlinesTest) {
     }
     EXPECT_EQ(res.back(), 10);
 
-    dg.add_edge(FORPFSSPSD::operation{3, 0}, FORPFSSPSD::operation{2, 1}, 7);
+    dg.add_edge(FS::operation{FS::JobId(3), FS::OperationId(0)},
+                FS::operation{FS::JobId(2), FS::OperationId(1)},
+                7);
     auto res2 = res;
 
     {
-        auto result = algorithm::LongestPath::computeASAPST(
-                dg, res2, dg.cget_vertices(1), dg.cget_vertices(2, 3));
+        auto result =
+                algorithm::LongestPath::computeASAPST(dg,
+                                                      res2,
+                                                      dg.cget_vertices(FS::JobId(1)),
+                                                      dg.cget_vertices(FS::JobId(2), FS::JobId(3)));
 
         DelayGraph::export_utilities::saveAsTikz(f, dg, "infeasible_1.tex");
         algorithm::LongestPath::dumpToFile(dg, res2, "asapst_test.txt");
@@ -213,21 +238,26 @@ TEST(ASAPST, FixDeadlinesTest) {
 TEST(ASAPST, splitComputation) {
     auto [jobs, opMachineMap] = createDefaultOps(4, 2);
 
-    FORPFSSPSD::Instance f("fix_deadlines",
-                           std::move(jobs),
-                           std::move(opMachineMap),
-                           {{{{0, 0}, 1}, {{1, 0}, 2}, {{2, 0}, 3}, {{3, 0}, 4}}, 1},
-                           {{}, 0},
-                           {},
-                           {},
-                           {{{{0, 1}, {{{0, 0}, 10}}},
-                             {{1, 1}, {{{1, 0}, 10}}},
-                             {{2, 1}, {{{2, 0}, 10}}},
-                             {{3, 1}, {{{3, 0}, 10}}}}},
-                           {},
-                           {},
-                           0,
-                           0);
+    FORPFSSPSD::Instance f(
+            "fix_deadlines",
+            std::move(jobs),
+            std::move(opMachineMap),
+            {{{{FS::JobId(0), FS::OperationId(0)}, 1},
+              {{FS::JobId(1), FS::OperationId(0)}, 2},
+              {{FS::JobId(2), FS::OperationId(0)}, 3},
+              {{FS::JobId(3), FS::OperationId(0)}, 4}},
+             1},
+            {{}, 0},
+            {},
+            {},
+            {{{{FS::JobId(0), FS::OperationId(1)}, {{{FS::JobId(0), FS::OperationId(0)}, 10}}},
+              {{FS::JobId(1), FS::OperationId(1)}, {{{FS::JobId(1), FS::OperationId(0)}, 10}}},
+              {{FS::JobId(2), FS::OperationId(1)}, {{{FS::JobId(2), FS::OperationId(0)}, 10}}},
+              {{FS::JobId(3), FS::OperationId(1)}, {{{FS::JobId(3), FS::OperationId(0)}, 10}}}}},
+            {},
+            {},
+            0,
+            0);
 
     auto dg = Builder::FORPFSSPSD(f);
     auto res = algorithm::LongestPath::initializeASAPST(dg);
@@ -238,7 +268,7 @@ TEST(ASAPST, splitComputation) {
 
     // fix deadlines and setup times for some part
     for (vertex &v : dg.get_vertices()) {
-        if (v.operation.jobId >= 2) {
+        if (v.operation.jobId.value >= 2) {
             continue;
         }
         for (auto &[dst, weight] : v.get_outgoing_edges()) {
@@ -251,20 +281,29 @@ TEST(ASAPST, splitComputation) {
     }
 
     // TODO: if in fixed area, do a feasibility check based on the calculated ASAPST
-    dg.add_edge(dg.get_vertex({3, 0}), dg.get_vertex({2, 1}), 8);
+    dg.add_edge(FS::operation{FS::JobId(3), FS::OperationId(0)},
+                FS::operation{FS::JobId(2), FS::OperationId(1)},
+                8);
     {
         auto result = algorithm::LongestPath::computeASAPST(
-                dg, res, dg.cget_vertices(2), dg.cget_vertices(3));
+                dg, res, dg.cget_vertices(FS::JobId(2)), dg.cget_vertices(FS::JobId(3)));
         EXPECT_FALSE(result.positiveCycle.empty());
     }
 
-    dg.add_edge(FORPFSSPSD::operation{3,0}, FORPFSSPSD::operation{2,1}, 3);
+    dg.add_edge(FS::operation{FS::JobId(3), FS::OperationId(0)},
+                FS::operation{FS::JobId(2), FS::OperationId(1)},
+                3);
     res = algorithm::LongestPath::initializeASAPST(dg);
-    algorithm::LongestPath::computeASAPST(
-            dg, res, {dg.get_vertex(FORPFSSPSD::operation{0, 0})}, dg.get_vertices(0, 1));
+    algorithm::LongestPath::computeASAPST(dg,
+                                          res,
+                                          {dg.get_vertex({FS::JobId(0), FS::OperationId(0)})},
+                                          dg.get_vertices(FS::JobId(0), FS::JobId(1)));
     {
-        auto result = algorithm::LongestPath::computeASAPST(
-                dg, res, dg.cget_vertices(1), dg.cget_vertices(2, 3));
+        auto result =
+                algorithm::LongestPath::computeASAPST(dg,
+                                                      res,
+                                                      dg.cget_vertices(FS::JobId(1)),
+                                                      dg.cget_vertices(FS::JobId(2), FS::JobId(3)));
         EXPECT_TRUE(result.positiveCycle.empty());
     }
 
@@ -275,13 +314,13 @@ TEST(ASAPST, longestCycleFeasible) {
     delayGraph dg;
 
     auto v0 = dg.add_source(static_cast<FORPFSSPSD::MachineId>(0U));
-    auto v1 = dg.add_vertex(0U, 0U);
+    auto v1 = dg.add_vertex(FS::JobId(0U), FS::OperationId(0U));
     std::cout << v1 << std::endl;
-    auto v2 = dg.add_vertex(1U, 1U);
-    auto v3 = dg.add_vertex(1U, 2U);
-    auto v4 = dg.add_vertex(2U, 1U);
-    auto v5 = dg.add_vertex(2U, 2U);
-    auto v6 = dg.add_vertex(2U, 3U);
+    auto v2 = dg.add_vertex(FS::JobId(1U), FS::OperationId(1U));
+    auto v3 = dg.add_vertex(FS::JobId(1U), FS::OperationId(2U));
+    auto v4 = dg.add_vertex(FS::JobId(2U), FS::OperationId(1U));
+    auto v5 = dg.add_vertex(FS::JobId(2U), FS::OperationId(2U));
+    auto v6 = dg.add_vertex(FS::JobId(2U), FS::OperationId(3U));
     dg.add_edge(v0,v1, 0);
     dg.add_edge(v1,v2, 1);
     dg.add_edge(v2,v3, 1);
@@ -304,12 +343,12 @@ TEST(ASAPST, longestCycleInfeasible) {
     delayGraph dg;
 
     auto v0 = dg.add_source(static_cast<FORPFSSPSD::MachineId>(0U));
-    auto v1 = dg.add_vertex(0U, 0U);
-    auto v2 = dg.add_vertex(1U, 1U);
-    auto v3 = dg.add_vertex(1U, 2U);
-    auto v4 = dg.add_vertex(2U, 1U);
-    auto v5 = dg.add_vertex(2U, 2U);
-    auto v6 = dg.add_vertex(2U, 3U);
+    auto v1 = dg.add_vertex(FS::JobId(0U), FS::OperationId(0U));
+    auto v2 = dg.add_vertex(FS::JobId(1U), FS::OperationId(1U));
+    auto v3 = dg.add_vertex(FS::JobId(1U), FS::OperationId(2U));
+    auto v4 = dg.add_vertex(FS::JobId(2U), FS::OperationId(1U));
+    auto v5 = dg.add_vertex(FS::JobId(2U), FS::OperationId(2U));
+    auto v6 = dg.add_vertex(FS::JobId(2U), FS::OperationId(3U));
 
     dg.add_edge(v0,v1, 0);
     dg.add_edge(v1,v2, 1);
@@ -330,15 +369,15 @@ TEST(ASAPST, longestCycleInfeasibleWindowed) {
 
     auto v0 = dg.add_source(static_cast<FORPFSSPSD::MachineId>(0U));
 
-    auto vId1 = dg.add_vertex(0U, 0U);
-    auto vId2 = dg.add_vertex(1U, 1U);
-    auto vId3 = dg.add_vertex(1U, 2U);
-    auto vId4 = dg.add_vertex(2U, 1U);
-    auto vId5 = dg.add_vertex(2U, 2U);
-    auto vId6 = dg.add_vertex(2U, 3U);
-    auto vId7 = dg.add_vertex(2U, 4U);
-    auto vId8 = dg.add_vertex(2U, 5U);
-    auto vId9 = dg.add_vertex(2U, 6U);
+    auto vId1 = dg.add_vertex(FS::JobId(0U), FS::OperationId(0U));
+    auto vId2 = dg.add_vertex(FS::JobId(1U), FS::OperationId(1U));
+    auto vId3 = dg.add_vertex(FS::JobId(1U), FS::OperationId(2U));
+    auto vId4 = dg.add_vertex(FS::JobId(2U), FS::OperationId(1U));
+    auto vId5 = dg.add_vertex(FS::JobId(2U), FS::OperationId(2U));
+    auto vId6 = dg.add_vertex(FS::JobId(2U), FS::OperationId(3U));
+    auto vId7 = dg.add_vertex(FS::JobId(2U), FS::OperationId(4U));
+    auto vId8 = dg.add_vertex(FS::JobId(2U), FS::OperationId(5U));
+    auto vId9 = dg.add_vertex(FS::JobId(2U), FS::OperationId(6U));
 
     auto &v1 = dg.get_vertex(vId1);
     auto &v2 = dg.get_vertex(vId2);
@@ -476,7 +515,7 @@ TEST(ASAPST, singleNode) {
     auto instance = parser.createProductionLine();
 
     auto dg = Builder::FORPFSSPSD(instance[static_cast<ModuleId>(1)]);
-    const operation opS{1, 1};
+    const operation opS{FS::JobId(1), FS::OperationId(1)};
     const auto vId = dg.get_vertex_id(opS);
     auto res = algorithm::LongestPath::computeASAPSTFromNode(dg, vId);
 
@@ -491,10 +530,10 @@ TEST(ASAPST, obtainCycle) {
     std::vector<DelayGraph::VertexID> ids;
 
     ids.push_back(dg.add_source(FORPFSSPSD::MachineId{0U}));
-    ids.push_back(dg.add_vertex(0U, 0U));
-    ids.push_back(dg.add_vertex(1U, 1U));
-    ids.push_back(dg.add_vertex(2U, 2U));
-    ids.push_back(dg.add_vertex(3U, 3U));
+    ids.push_back(dg.add_vertex(FS::JobId(0U), FS::OperationId(0U)));
+    ids.push_back(dg.add_vertex(FS::JobId(1U), FS::OperationId(1U)));
+    ids.push_back(dg.add_vertex(FS::JobId(2U), FS::OperationId(2U)));
+    ids.push_back(dg.add_vertex(FS::JobId(3U), FS::OperationId(3U)));
 
     // We create a positive cycle
     dg.add_edge(ids.at(0), ids.at(1), 1);

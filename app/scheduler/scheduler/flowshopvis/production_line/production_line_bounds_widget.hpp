@@ -15,7 +15,7 @@ class ProductionLineBoundsWidget : public QWidget {
 public:
     explicit ProductionLineBoundsWidget(QWidget *parent = nullptr);
 
-    void setBounds(std::vector<algorithm::GlobalIntervals> bounds);
+    void setBounds(std::vector<FORPFSSPSD::GlobalBounds> bounds);
 
     void keyPressEvent(QKeyEvent *event) override;
 

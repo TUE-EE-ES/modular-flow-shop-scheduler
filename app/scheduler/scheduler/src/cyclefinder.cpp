@@ -1,3 +1,5 @@
+#include "pch/containers.hpp"
+
 #include "cyclefinder.h"
 
 bool CycleFinder::has_for_cycle_to(unsigned int node_index,

@@ -2,9 +2,7 @@
 #define DELAYGRAPH_BUILDER_HPP
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
-#include "FORPFSSPSD/global_local_mapper.hpp"
-#include "FORPFSSPSD/operation.h"
-#include "FORPFSSPSD/production_line.hpp"
+#include "delayGraph/delayGraph.h"
 
 namespace DelayGraph::Builder {
 
@@ -16,9 +14,6 @@ namespace DelayGraph::Builder {
 }
 
 [[nodiscard]] delayGraph jobShop(const FORPFSSPSD::Instance &problemInstance);
-
-[[nodiscard]] std::tuple<delayGraph, FORPFSSPSD::BasicGlobalLocalMapper>
-line(FORPFSSPSD::ProductionLine &problemInstance);
 
 /**
  * @brief Builds a constraint graph from a problem instance.

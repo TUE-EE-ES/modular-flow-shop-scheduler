@@ -91,7 +91,7 @@ void ActivityWidget::open_asapst_file(const QString &fileName,
 
     for (const auto &v : dg.get_vertices()) {
         FORPFSSPSD::operation op = v.operation;
-        if (dg.is_maint(v)) {
+        if (!DelayGraph::delayGraph::is_visible(v)) {
             continue;
         }
         delay val = asapst.at(v.id);

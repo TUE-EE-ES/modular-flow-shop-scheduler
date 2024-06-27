@@ -3,10 +3,16 @@
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
 #include "FORPFSSPSD/indices.hpp"
-#include "FORPFSSPSD/module.hpp"
+#include "delay.h"
+#include "delayGraph/vertex.h"
 #include "longest_path.h"
+#include "schedulingoption.h"
 
-#include "pch/containers.hpp"
+#include <cstddef>
+#include <optional>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 namespace algorithm {
 
@@ -23,12 +29,12 @@ class AnytimeHeuristic
      way to search the option space
      Currently just listed in order */
 
-    static std::tuple<std::tuple<delay, delay, delay, delay, uint32_t, uint32_t>,
-                      std::tuple<PartialSolution, delay, delay, uint32_t>>
+    static std::tuple<std::tuple<delay, delay, delay, delay, std::uint32_t, std::uint32_t>,
+                      std::tuple<PartialSolution, delay, delay, std::uint32_t>>
     rankSolution(std::tuple<PartialSolution, option> solution,
                  DelayGraph::delayGraph &dg,
-                 std::tuple<delay, delay, delay, delay, uint32_t, uint32_t> existingNorms,
-                 std::tuple<PartialSolution, delay, delay, uint32_t> existingRank,
+                 std::tuple<delay, delay, delay, delay, std::uint32_t, std::uint32_t> existingNorms,
+                 std::tuple<PartialSolution, delay, delay, std::uint32_t> existingRank,
                  PathTimes &ASAPTimes,
                  FORPFSSPSD::MachineId reEntrantMachine,
                  const commandLineArgs &args);

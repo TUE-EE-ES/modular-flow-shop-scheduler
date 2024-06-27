@@ -40,12 +40,12 @@ test: # build continuous integration for each commit on the master branch
         expire_in: 1 week
     environment:
         name: review/$CI_COMMIT_REF_NAME
-        url: "https://$CI_PROJECT_NAMESPACE.pages.tue.nl/-/$CI_PROJECT_NAME/-/jobs/$CI_JOB_ID/artifacts/pages/index.html"
+        url: "https://$CI_PROJECT_ROOT_NAMESPACE.pages.tue.nl/-/$CI_PROJECT_NAME/-/jobs/$CI_JOB_ID/artifacts/pages/index.html"
         
 pages:
     stage: deploy
     tags:
-        - samfms
+        - samfms2
     needs:
         - job: test
           artifacts: true

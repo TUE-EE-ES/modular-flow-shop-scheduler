@@ -78,7 +78,7 @@ void highlightChanged(const FORPFSSPSD::IntervalSpec &oldBounds,
 
 // NOLINTBEGIN(google-default-arguments)
 
-void FlowShopVis::BoundsModel::setBounds(std::vector<algorithm::ModuleBounds> bounds) {
+void FlowShopVis::BoundsModel::setBounds(std::vector<FORPFSSPSD::ModuleBounds> bounds) {
     beginResetModel();
     m_bounds = std::move(bounds);
     m_currentIndex = 0;
@@ -149,10 +149,9 @@ QVariant BoundsModel::data(const QModelIndex &index, int role) const {
 
     if (role == Qt::ToolTipRole) {
 
-        const auto sJobFrom = QString("J%1-").arg(jobFrom) + (jobFromIdx == col ? "I" : "O");
-        const auto sJobTo = QString("J%1-").arg(jobTo) + (jobToIdx == row ? "I" : "O");
-
-        return QString("From %1 to %2").arg(sJobFrom).arg(sJobTo);
+        const auto sJobFrom = QString("J%1-").arg(jobFrom.value) + (jobFromIdx == col ? "I" : "O");
+        const auto sJobTo = QString("J%1-").arg(jobTo.value) + (jobToIdx == row ? "I" : "O");
+        return QString("From J%1 to J%2").arg(sJobFrom).arg(sJobTo);
     }
 
     if (row < 0 || row >= m_sortedJobs.size() * 2 || col < 0 || col >= m_sortedJobs.size() * 2) {
@@ -199,7 +198,7 @@ QVariant BoundsModel::headerData(int section, Qt::Orientation /*orientation*/, i
     }
     const auto jobIdx = section % m_sortedJobs.size();
     const auto jobId = m_sortedJobs.at(jobIdx);
-    return QString("J%1-").arg(jobId) + (jobIdx == section ? "I" : "O");
+    return QString("J%1-").arg(jobId.value) + (jobIdx == section ? "I" : "O");
 }   
 
 // NOLINTEND(google-default-arguments)

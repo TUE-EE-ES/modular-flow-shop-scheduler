@@ -15,7 +15,7 @@ FORPFSSPSD::Instance createHomogeneousCase(delay load_time, delay print_1_time, 
     FORPFSSPSD::JobOperations jobs;
     FORPFSSPSD::OperationMachineMap operationMachineMap;
     
-    for(unsigned int i = 0; i < n_pages; i++) {
+    for(JobId i(0); i.value < n_pages; i++) {
         processingTimes.insert({i, 0}, load_time);
         processingTimes.insert({i, 1}, print_1_time);
         processingTimes.insert({i, 2}, print_2_time);

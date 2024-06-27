@@ -1,21 +1,16 @@
- /*
+/*
   * @author Eghonghon Eigbe
   * schedule repair in a computed schedule
   */
+#include "pch/containers.hpp"
+
 #include "repairschedule.h"
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
 #include "FORPFSSPSD/operation.h"
 #include "delayGraph/delayGraph.h"
-#include "delayGraph/export_utilities.h"
 #include "delayGraph/vertex.h"
 #include "longest_path.h"
-#include "paretocull.h"
-#include "solvers/forwardheuristic.h"
-
-#include <chrono>
-#include <iomanip>
-#include <map>
 
 using namespace algorithm;
 using namespace std;
@@ -30,8 +25,8 @@ std::tuple<PartialSolution, delayGraph> RepairSchedule::repairScheduleOffline(co
     LOG(std::string() + "This schedule became infeasible because of operation " + fmt::to_string(*solution.latest_edge(machine)) +
         " the preceeding edge is " + fmt::to_string(*(--solution.latest_edge(machine))) + "\n.");
 
-    unsigned int lastFirstPass = std::numeric_limits<unsigned int>::max();
-    unsigned int lastCommittedSecondPass = std::numeric_limits<unsigned int>::max();
+    FS::JobId lastFirstPass = FS::JobId::max();
+    FS::JobId lastCommittedSecondPass = FS::JobId::max();
 
     auto start = solution.getChosenEdges(machine).begin();
 
@@ -57,7 +52,7 @@ std::tuple<PartialSolution, delayGraph> RepairSchedule::repairScheduleOffline(co
     //perform the actual repair
     //insert second passes earlier
     std::vector<FORPFSSPSD::operation>  insertions;
-    for(unsigned int i = (lastCommittedSecondPass == std::numeric_limits<unsigned int>::max()? 0 :lastCommittedSecondPass+1); 
+    for(FS::JobId i = (lastCommittedSecondPass == FS::JobId::max() ? FS::JobId(0) :lastCommittedSecondPass+1); 
         i<=eligibleOperation.jobId; 
         i++){
         if (i <= lastFirstPass && problemInstance.getPlexity(i) == FORPFSSPSD::Plexity::DUPLEX){//if second pass not in chosen edges add it
@@ -108,7 +103,7 @@ RepairSchedule::findSecondToLastFirstPass(const FORPFSSPSD::Instance &problemIns
                                           const PartialSolution &solution,
                                           FORPFSSPSD::MachineId machine,
                                           DelayGraph::Edges::difference_type start) {
-    unsigned int lastFirstPass = std::numeric_limits<FORPFSSPSD::JobId>::max();
+    FS::JobId lastFirstPass = FS::JobId::max();
     const FORPFSSPSD::OperationId &firstReEntrantOp = problemInstance.getMachineOperations(machine).front();
     const FORPFSSPSD::OperationId &secondReEntrantOp = firstReEntrantOp + 1;
 
@@ -145,7 +140,7 @@ RepairSchedule::findLastCommittedSecondPass(const FORPFSSPSD::Instance &problemI
                                             const PartialSolution &solution,
                                             FORPFSSPSD::MachineId machine,
                                             int start) {
-    unsigned int lastCommittedSecondPass = std::numeric_limits<unsigned int>::max();
+    FS::JobId lastCommittedSecondPass = FS::JobId::max();
 
     const FORPFSSPSD::OperationId &firstReEntrantOp = problemInstance.getMachineOperations(machine).front();
     const FORPFSSPSD::OperationId &secondReEntrantOp = firstReEntrantOp + 1;
@@ -336,3 +331,4 @@ RepairSchedule::recomputeSchedule(const FORPFSSPSD::Instance &problemInstance,
     schedule.setASAPST(ASAPST);
     return result;
 }
+

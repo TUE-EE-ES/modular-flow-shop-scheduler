@@ -1,15 +1,15 @@
 #ifndef DD_SOLUTION_HPP
 #define DD_SOLUTION_HPP
 
-#include "pch/containers.hpp"
-#include "pch/utils.hpp"
-#include <cstdint>
-
 #include "vertex.hpp"
 
-namespace DD {
+#include <chrono>
+#include <cstdint>
+#include <limits>
+#include <nlohmann/json.hpp>
+#include <vector>
 
-using SharedVertex = std::shared_ptr<DD::Vertex>; //remove after templating solved
+namespace DD {
 
 class DDSolution{
 

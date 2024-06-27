@@ -1,3 +1,5 @@
+#include "pch/containers.hpp"
+
 #include "maintenanceheuristic.h"
 
 #include "FORPFSSPSD/indices.hpp"
@@ -70,7 +72,7 @@ MaintenanceHeuristic::evaluateSchedule(const FORPFSSPSD::Instance &problemInstan
     auto ASAPST = schedule.getASAPST();
     const auto &maintPolicy = problemInstance.maintenancePolicy();
     FORPFSSPSD::MachineId machine = problemInstance.getMachine(eligibleOperation);
-    unsigned int lastCommittedSecondPass = std::numeric_limits<unsigned int>::max();
+    FS::JobId lastCommittedSecondPass = FS::JobId::max();
 
     auto totalSizes = problemInstance.getMaximumSheetSize();
     std::vector<delay> TLU(totalSizes + 1, 0);
@@ -92,7 +94,7 @@ MaintenanceHeuristic::evaluateSchedule(const FORPFSSPSD::Instance &problemInstan
                 // add operation to the delay graph and add necessary edges both to delay graph and
                 // schedule
                 unsigned int actionID = checkInterval(fetch, maintPolicy, args);
-                if (actionID != delayGraph::MAINT_ID) {
+                if (actionID != delayGraph::MAINT_ID.value) {
                     LOG("Maintenance triggered before op {}",dg.get_vertex(schedule.getChosenEdges(machine)[i].dst).operation);
                     // add the edges from the options to the list
                     auto q = insertMaintenance(
@@ -102,10 +104,10 @@ MaintenanceHeuristic::evaluateSchedule(const FORPFSSPSD::Instance &problemInstan
                     new_solution.incrMaintCount();
 
                     ASAPST.push_back(std::numeric_limits<delay>::min());
-                    auto sources =
-                            (lastCommittedSecondPass == std::numeric_limits<unsigned int>::max())
-                                    ? VerticesCRef{dg.get_vertex(FORPFSSPSD::operation{0, 0})}
-                                    : dg.cget_vertices(lastCommittedSecondPass);
+                    auto sources = (lastCommittedSecondPass == FS::JobId::max())
+                                           ? VerticesCRef{dg.get_vertex(
+                                                   FORPFSSPSD::operation{FS::JobId(0), 0})}
+                                           : dg.cget_vertices(lastCommittedSecondPass);
                     auto window = dg.get_vertices(lastCommittedSecondPass + 1, nextOperation.jobId);
                     auto m = dg.get_maint_vertices();
                     window.insert(window.end(), m.begin(), m.end());
@@ -265,7 +267,7 @@ unsigned int MaintenanceHeuristic::checkInterval(std::pair<long,long> idle, cons
 	        	throw FmsSchedulerException(std::string() + "Algorithm not recognised for maintenance insertion.");
 	    }
     }
-    return delayGraph::MAINT_ID;
+    return delayGraph::MAINT_ID.value;
 }
 
 LongestPathResult

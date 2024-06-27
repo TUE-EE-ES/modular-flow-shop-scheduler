@@ -1,3 +1,5 @@
+#include "pch/containers.hpp"
+
 #include "solvers/paretoheuristic.h"
 
 #include "delayGraph/builder.hpp"
@@ -18,7 +20,8 @@ using namespace algorithm;
 using namespace std;
 using namespace DelayGraph;
 
-std::vector<PartialSolution> ParetoHeuristic::solve(FORPFSSPSD::Instance &problemInstance, const commandLineArgs &args){
+std::vector<PartialSolution> ParetoHeuristic::solve(FORPFSSPSD::Instance &problemInstance,
+                                                    const commandLineArgs &args) {
     // solve the instance
     LOG("Computation of the schedule started");
 
@@ -28,7 +31,7 @@ std::vector<PartialSolution> ParetoHeuristic::solve(FORPFSSPSD::Instance &proble
     }
     auto dg = problemInstance.getDelayGraph();
 
-    if(args.verbose >= LOGGER_LEVEL::DEBUG) {
+    if (args.verbose >= LOGGER_LEVEL::DEBUG) {
         auto name = fmt::format("input_graph_{}.tex", problemInstance.getProblemName());
         DelayGraph::export_utilities::saveAsTikz(problemInstance, dg, name);
     }
@@ -48,35 +51,40 @@ std::vector<PartialSolution> ParetoHeuristic::solve(FORPFSSPSD::Instance &proble
 
     PartialSolution solution({{reentrant_machine, initial_sequence}}, ASAPST);
 
-    const std::vector<unsigned int> & ops = problemInstance.getOperationsMappedOnMachine().at(reentrant_machine); // check how many operations are mapped
+    const std::vector<unsigned int> &ops = problemInstance.getOperationsMappedOnMachine().at(
+            reentrant_machine); // check how many operations are mapped
 
     std::vector<PartialSolution> solutions;
     solutions.push_back(solution);
 
     // iteratively schedule eligible nodes (insert higher passes between the existing sequence)
-    for(unsigned int i = 0; i < problemInstance.getNumberOfJobs() - 1; i++) {
+    for (unsigned int i = 0; i < problemInstance.getNumberOfJobs() - 1; i++) {
         bool first = true; // First operation is already included in the initial sequence
-        for(unsigned int op : ops) {
-            if(!first) {
-                const auto &eligibleOperation = dg.get_vertex({i, op});
-                solutions = scheduleOneOperation(dg, problemInstance, solutions, eligibleOperation, args.maxPartialSolutions);
+        for (unsigned int op : ops) {
+            if (!first) {
+                const auto &eligibleOperation = dg.get_vertex({FS::JobId(i), op});
+                solutions = scheduleOneOperation(dg,
+                                                 problemInstance,
+                                                 solutions,
+                                                 eligibleOperation,
+                                                 args.maxPartialSolutions);
             }
             first = false;
         }
     }
 
-    if(args.verbose >= LOGGER_LEVEL::DEBUG) {
-        auto name = fmt::format("output_graph_{}.tex", problemInstance.getProblemName());  
+    if (args.verbose >= LOGGER_LEVEL::DEBUG) {
+        auto name = fmt::format("output_graph_{}.tex", problemInstance.getProblemName());
         DelayGraph::export_utilities::saveAsTikz(problemInstance, dg, name);
     }
     return solutions;
 }
 
-
-delay ParetoHeuristic::determine_smallest_deadline(const vertex & v) {
-    delay currentDeadline = std::numeric_limits<delay>::max(); // equivalent to the maximal permissible deadline
+delay ParetoHeuristic::determine_smallest_deadline(const vertex &v) {
+    delay currentDeadline =
+            std::numeric_limits<delay>::max(); // equivalent to the maximal permissible deadline
     for (const auto &[dst, weight] : v.get_outgoing_edges()) {
-        if(weight < 0) {
+        if (weight < 0) {
             currentDeadline = std::min(currentDeadline, -weight);
         }
     }
@@ -101,64 +109,72 @@ ParetoHeuristic::scheduleOneOperation(delayGraph &dg,
 
     std::vector<PartialSolution> newGenerationOfSolutions;
 
-    if(currentGeneration.empty()) throw FmsSchedulerException("No solutions to continue with!");
+    if (currentGeneration.empty())
+        throw FmsSchedulerException("No solutions to continue with!");
 
-    for(const PartialSolution& solution : currentGeneration) {
+    for (const PartialSolution &solution : currentGeneration) {
         LOG(fmt::format(FMT_COMPILE("Starting from current_solution {}"), solution));
 
-        if(Logger::getVerbosity() >= LOGGER_LEVEL::INFO) {
+        if (Logger::getVerbosity() >= LOGGER_LEVEL::INFO) {
             LOG(LOGGER_LEVEL::INFO, "beginning of iteration (after reduce):");
-            for(const auto &some : currentGeneration) {
+            for (const auto &some : currentGeneration) {
                 LOG(fmt::to_string(some));
             }
         }
         // create all option that are potentially feasible:
-        auto [last_potentially_feasible_option, options] = ForwardHeuristic::createOptions(dg,problem, solution, eligibleOperation, reEntrantMachine);
+        auto [last_potentially_feasible_option, options] = ForwardHeuristic::createOptions(
+                dg, problem, solution, eligibleOperation, reEntrantMachine);
 
-        // update the ASAPTimes for the coming window, so that we have enough information to compute the ranking
-        const unsigned int job_start = eligibleOperation.operation.jobId;
+        // update the ASAPTimes for the coming window, so that we have enough information to compute
+        // the ranking
+        const auto jobStart = eligibleOperation.operation.jobId;
         vector<delay> ASAPTimes = solution.getASAPST();
 
         LongestPath::computeASAPST(
                 dg,
                 ASAPTimes,
-                dg.cget_vertices(max(job_start, 1u) - 1),
+                dg.cget_vertices(max(jobStart, FS::JobId(1)) - 1),
                 dg.cget_vertices(
-                        job_start,
+                        jobStart,
                         dg.get_vertex(last_potentially_feasible_option.dst).operation.jobId));
 
-        if(options.empty()) {
+        if (options.empty()) {
             export_utilities::saveAsTikz(problem, solution, "no_options_left.tex");
             throw FmsSchedulerException("Unable to create any option!");
         }
 
         LOG(LOGGER_LEVEL::DEBUG, fmt::format(FMT_COMPILE("*** nr options: {}"), options.size()));
 
-        std::vector<std::pair<PartialSolution, option>> newSolutions = ForwardHeuristic::evaluate_option_feasibility(dg, problem, solution, options, ASAPTimes, reEntrantMachine);
+        std::vector<std::pair<PartialSolution, option>> newSolutions =
+                ForwardHeuristic::evaluate_option_feasibility(
+                        dg, problem, solution, options, ASAPTimes, reEntrantMachine);
 
-        for(const auto& sol : newSolutions) {
+        for (const auto &sol : newSolutions) {
             newGenerationOfSolutions.push_back(sol.first);
         }
-
     }
     LOG(fmt::format(FMT_COMPILE("-- Size: {} became {}/{}\n"),
                     currentGeneration.size(),
                     newGenerationOfSolutions.size(),
                     algorithm::pareto::simple_cull(newGenerationOfSolutions).size()));
 
-    if(newGenerationOfSolutions.empty()) // none of the solutions were feasible...
+    if (newGenerationOfSolutions.empty()) // none of the solutions were feasible...
     {
         unsigned int k = 0;
-        for(auto & ps : currentGeneration) {
-            vector<delay> ASAPST = ps.getASAPST(); // create a local copy that we can modify without issues
+        for (auto &ps : currentGeneration) {
+            vector<delay> ASAPST =
+                    ps.getASAPST(); // create a local copy that we can modify without issues
             auto result = ForwardHeuristic::validateInterleaving(
                     dg,
                     problem,
                     ps.getChosenEdges(problem.getReEntrantMachines().front()),
                     ASAPST,
-                    {dg.get_vertex(FORPFSSPSD::operation{0, 0})},
+                    {dg.get_vertex(FORPFSSPSD::operation{FS::JobId(0), 0})},
                     dg.cget_vertices());
-            export_utilities::saveAsTikz(problem, ps, std::string() + "infeasible" + std::to_string(k) + ".tex", result.positiveCycle);
+            export_utilities::saveAsTikz(problem,
+                                         ps,
+                                         std::string() + "infeasible" + std::to_string(k) + ".tex",
+                                         result.positiveCycle);
         }
         LOG(LOGGER_LEVEL::INFO,
             fmt::format("No feasible option has been detected for operation {}",

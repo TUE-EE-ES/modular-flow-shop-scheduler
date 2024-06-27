@@ -10,22 +10,23 @@
 class AlgorithmType {
 public:
     enum Value {
-        BHCS,            // Bounded Heuristic Constraint Scheduler
-        MDBHCS,          // Multi-Dimensional BHCS
-        MIBHCS,          // Maintenance-aware forward heuristic
-        MISIM,           // Simulate maintenance insertion at enf of forward heuristic
-        ASAP,            // As soon as possible scheduling (inserts the operation without ranking)
-        MIASAP,          // Maintenance-aware ASAP
-        MIASAPSIM,       // Maintenance-aware ASAP with maintenance as post-scheduling decision
-        NEH,             // MNEH heuristic (B. Jeong and Y. Kim)
-        MINEH,           // Maintenance-aware MNEH
-        MINEHSIM,        // Maintenance-aware MNEH with maintenance as post-scheduling decision
+        BHCS,            /// Bounded Heuristic Constraint Scheduler
+        MDBHCS,          /// Multi-Dimensional BHCS
+        MIBHCS,          /// Maintenance-aware forward heuristic
+        MISIM,           /// Simulate maintenance insertion at enf of forward heuristic
+        ASAP,            /// As soon as possible scheduling (inserts the operation without ranking)
+        MIASAP,          /// Maintenance-aware ASAP
+        MIASAPSIM,       /// Maintenance-aware ASAP with maintenance as post-scheduling decision
+        NEH,             /// MNEH heuristic (B. Jeong and Y. Kim)
+        MINEH,           /// Maintenance-aware MNEH
+        MINEHSIM,        /// Maintenance-aware MNEH with maintenance as post-scheduling decision
         BRANCH_BOUND,    // Branch and bound solver
-        GIVEN_SEQUENCE,  // Use a given sequence to generate a schedule
-        ANYTIME,         // Anytime solver for n-re-entrancy
-        ITERATED_GREEDY, // Iterated greedy solver for n-re-entrancy
-        DD,              // Decision diagram solver
-        DDSeed           // Decision diagram solver built around a seed solution
+        GIVEN_SEQUENCE,  /// Use a given sequence to generate a schedule
+        ANYTIME,         /// Anytime solver for n-re-entrancy
+        ITERATED_GREEDY, /// Iterated greedy solver for n-re-entrancy
+        DD,              /// Decision diagram solver
+        DDSeed,          /// Decision diagram solver built around a seed solution
+        SIMPLE           /// Simple scheduler that does not interleave operations
     };
 
     AlgorithmType() = default;
@@ -64,7 +65,7 @@ public:
             Value::ANYTIME,
             Value::ITERATED_GREEDY,
             Value::DD,
-            Value::DDSeed
+            Value::SIMPLE
     };
 
 private:
@@ -73,7 +74,7 @@ private:
 
 class ModularAlgorithmType {
 public:
-    enum Value { BROADCAST, COCKTAIL, BACKTRACK };
+    enum Value { BROADCAST, COCKTAIL };
     ModularAlgorithmType() = default;
 
     // NOLINTNEXTLINE: Allow implicit conversion from Value so we can use it as an enum
@@ -98,7 +99,7 @@ public:
      */
     [[nodiscard]] std::string_view shortName() const;
 
-    static constexpr std::array allAlgorithms{Value::BROADCAST, Value::COCKTAIL, Value::BACKTRACK};
+    static constexpr std::array allAlgorithms{Value::BROADCAST, Value::COCKTAIL};
 
 private:
     Value m_value;
@@ -180,7 +181,7 @@ struct commandLineArgs{
     // optional - Must be filled with defs.
     // NOLINTBEGIN 
     std::string maintPolicyFile = "";
-    LOGGER_LEVEL verbose = LOGGER_LEVEL::FATAL;
+    LOGGER_LEVEL verbose = LOGGER_LEVEL::CRITICAL;
     double productivityWeight = 0.7;
     double flexibilityWeight = 0.25;
     double tieWeight = 0.05;

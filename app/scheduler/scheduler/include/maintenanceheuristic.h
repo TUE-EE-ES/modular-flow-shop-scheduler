@@ -1,12 +1,8 @@
-//#ifndef MAINTENANCEHEURISTIC_H
-//#define MAINTENANCEHEURISTIC_H
+#ifndef MAINTENANCEHEURISTIC_H
+#define MAINTENANCEHEURISTIC_H
 
 #include "FORPFSSPSD/FORPFSSPSD.h"
 #include "longest_path.h"
-
-#include "pch/containers.hpp"
-
-#include <memory>
 
 namespace algorithm {
 
@@ -68,4 +64,4 @@ public:
 
 }
 
-//#endif // MAINTENANCEHEURISTIC_H
+#endif // MAINTENANCEHEURISTIC_H

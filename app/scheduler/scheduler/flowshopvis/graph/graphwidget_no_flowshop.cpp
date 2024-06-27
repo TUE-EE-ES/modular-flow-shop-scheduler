@@ -27,7 +27,7 @@ GraphWidgetNoFlowshop::GraphWidgetNoFlowshop(const delayGraph &dg,
         }
 
         const auto &op = v.operation;
-        QPointF pos(100 * op.jobId, 200 * op.operationId);
+        QPointF pos(100 * op.jobId.value, 200 * op.operationId);
         QColor color(getColor(v.operation.operationId));
 
         addNode(moduleId, op, pos, color, boundingbox);

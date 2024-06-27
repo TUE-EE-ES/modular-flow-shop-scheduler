@@ -1,6 +1,7 @@
 #ifndef FORPFSSPSD_OPERATION_H
 #define FORPFSSPSD_OPERATION_H
 
+#include "indices.hpp"
 #include "utils/hash.hpp"
 
 #include <cstdint>
@@ -11,14 +12,9 @@
 namespace FORPFSSPSD {
 // inner types for temporary storage and mappings
 
-/// Index of a job
-using JobId = std::uint32_t;
-
 /// Order in which jobs should output the last machine
 using JobOutOrder = std::size_t;
 
-/// Index of a operation within a job
-using OperationId = std::uint32_t;
 /// Index of a maintenance class
 using MaintType = std::uint32_t;
 
@@ -33,7 +29,9 @@ struct operation {
 
     friend std::istream &operator>>(std::istream &in, operation &op) {
         in.ignore(std::numeric_limits<std::streamsize>::max(), '(');
-        in >> op.jobId;
+        JobId::ValueType jobId;
+        in >> jobId;
+        op.jobId = JobId(jobId);
         in.ignore(std::numeric_limits<std::streamsize>::max(), ',');
         in >> op.operationId;
         in.ignore(std::numeric_limits<std::streamsize>::max(), ')');

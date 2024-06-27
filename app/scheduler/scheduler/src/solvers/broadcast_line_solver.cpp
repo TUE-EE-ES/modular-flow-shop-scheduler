@@ -23,8 +23,6 @@
 using namespace algorithm;
 using namespace DelayGraph;
 
-namespace FS = FORPFSSPSD;
-
 namespace {
 
 template <bool negate = true>
@@ -142,93 +140,6 @@ nlohmann::json saveAllSequences(const std::vector<FMS::ModulesSolutions> &soluti
 
 } // namespace
 
-nlohmann::json BroadcastLineSolver::boundsToJSON(const FORPFSSPSD::IntervalSpec &bounds) {
-    nlohmann::json result;
-
-    for (const auto &[jobFrom, mapTo] : bounds) {
-        nlohmann::json jobIntervals;
-        for (const auto &[jobTo, interval] : mapTo) {
-            nlohmann::json value{interval.min().value_or(-1), interval.max().value_or(-1)};
-            jobIntervals[fmt::to_string(jobTo)] = std::move(value);
-        }
-        result[fmt::to_string(jobFrom)] = jobIntervals;
-    }
-    return result;
-}
-
-nlohmann::json BroadcastLineSolver::boundsToJSON(const GlobalIntervals &globalBounds) {
-    nlohmann::json result;
-    for (const auto &[moduleId, moduleIntervals] : globalBounds) {
-        const auto moduleIdInt = FORPFSSPSD::ModuleId(moduleId);
-        nlohmann::json value{{"in", boundsToJSON(moduleIntervals.in)},
-                             {"out", boundsToJSON(moduleIntervals.out)}};
-        result[fmt::to_string(moduleIdInt)] = std::move(value);
-    }
-    return result;
-}
-
-nlohmann::json BroadcastLineSolver::boundsToJSON(const std::vector<GlobalIntervals> &bounds) {
-    nlohmann::json result;
-    for (const auto &globalIntervals : bounds) {
-        result.push_back(boundsToJSON(globalIntervals));
-    }
-    return result;
-}
-
-FORPFSSPSD::IntervalSpec BroadcastLineSolver::moduleBoundsFromJSON(const nlohmann::json &json) {
-    FS::IntervalSpec result;
-
-    for (const auto &[jobFrom, mapTo] : json.items()) {
-        FS::JobId jobFromId = std::stoi(jobFrom);
-        for (const auto &[jobTo, intervalJson] : mapTo.items()) {
-            FS::JobId jobToId = std::stoi(jobTo);
-
-            if (intervalJson.size() != 2) {
-                throw std::invalid_argument(fmt::format(
-                        FMT_COMPILE("Invalid interval size for job {} to {}"), jobFromId, jobToId));
-            }
-
-            std::optional<delay> valueMin = intervalJson.at(0).get<delay>();
-            std::optional<delay> valueMax = intervalJson.at(1).get<delay>();
-
-            if (valueMin < 0) {
-                valueMin = std::nullopt;
-            }
-
-            if (valueMax < 0) {
-                valueMax = std::nullopt;
-            }
-
-            FS::TimeInterval interval{valueMin, valueMax};
-            result[jobFromId].insert({jobToId, interval});
-        }
-    }
-    return result;
-}
-
-GlobalIntervals BroadcastLineSolver::globalBoundsFromJSON(const nlohmann::json &json) {
-    GlobalIntervals result;
-    for (const auto &[moduleId, moduleIntervals] : json.items()) {
-        auto moduleIdInt = FS::ModuleId(std::stoi(moduleId));
-        result[moduleIdInt].in = moduleBoundsFromJSON(moduleIntervals.at("in"));
-        result[moduleIdInt].out = moduleBoundsFromJSON(moduleIntervals.at("out"));
-    }
-    return result;
-}
-
-std::vector<GlobalIntervals>
-BroadcastLineSolver::allGlobalBoundsFromJSON(const nlohmann::json &json) {
-    if (!json.is_array()) {
-        throw std::invalid_argument("Expected array of global intervals");
-    }
-
-    std::vector<GlobalIntervals> result;
-    for (const auto &globalIntervals : json) {
-        result.emplace_back(globalBoundsFromJSON(globalIntervals));
-    }
-    return result;
-}
-
 std::tuple<std::vector<FMS::ProductionLineSolution>, nlohmann::json>
 BroadcastLineSolver::solve(FORPFSSPSD::ProductionLine &problem, const commandLineArgs &args) {
 
@@ -236,14 +147,13 @@ BroadcastLineSolver::solve(FORPFSSPSD::ProductionLine &problem, const commandLin
     uint64_t iterations = 0;
 
     auto &modules = problem.modules();
-    std::vector<GlobalIntervals> allIntervals;             // To store the bounds history
-    std::vector<FMS::ModulesSolutions> allSolutions; // To store the solutions history
+    FMS::DistributedSchedulerHistory history(argsMod.storeSequence, argsMod.storeBounds);
     // Wait for convergence of lower bound before enabling upper bound
     bool convergedLowerBound = false;
 
     while (iterations < args.maxIterations && argsMod.timer.isRunning()) {
         FMS::ModulesSolutions moduleResults;
-        GlobalIntervals newIntervals;
+        FS::GlobalBounds newIntervals;
         newIntervals.reserve(modules.size());
         const bool upperBound = convergedLowerBound;
 
@@ -262,33 +172,26 @@ BroadcastLineSolver::solve(FORPFSSPSD::ProductionLine &problem, const commandLin
                 moduleResults.emplace(moduleId, std::move(result.front()));
             } catch (FmsSchedulerException &e) {
                 LOG_E("Broadcast: Exception while running algorithm: {}", e.what());
-                auto result = baseResultData(allSolutions, allIntervals, problem, iterations);
+                auto result = baseResultData(history, problem, iterations);
                 result["error"] = ErrorStrings::kLocalScheduler;
                 return {ProductionLineSolutions{}, std::move(result)};
             }
         }
 
-        if (argsMod.storeBounds) {
-            allIntervals.push_back(newIntervals);
-        }
-
-        if (argsMod.storeSequence) {
-            allSolutions.emplace_back(moduleResults);
-        }
-
+        history.addIteration(moduleResults, newIntervals);
         const auto [transIntervals, converged] = translateBounds(problem, newIntervals);
         propagateIntervals(problem, transIntervals);
         convergedLowerBound |= converged;
 
         if (converged && upperBound) {
             return {ProductionLineSolutions{mergeSolutions(problem, moduleResults)},
-                    baseResultData(allSolutions, allIntervals, problem, iterations)};
+                    baseResultData(history, problem, iterations)};
         }
 
         ++iterations;
     }
 
-    auto result = baseResultData(allSolutions, allIntervals, problem, iterations);
+    auto result = baseResultData(history, problem, iterations);
     result["error"] = ErrorStrings::kNoConvergence;
     if (argsMod.timer.isTimeUp()) {
         LOG_W("Broadcast: Time limit reached");
@@ -298,11 +201,11 @@ BroadcastLineSolver::solve(FORPFSSPSD::ProductionLine &problem, const commandLin
     return {ProductionLineSolutions{}, std::move(result)};
 }
 
-ModuleBounds BroadcastLineSolver::getBounds(const FORPFSSPSD::Module &problem,
+FS::ModuleBounds BroadcastLineSolver::getBounds(const FORPFSSPSD::Module &problem,
                                             const PartialSolution &solution,
                                             const bool upperBound,
                                             const BoundsSide intervalSide) {
-    ModuleBounds result;
+    FS::ModuleBounds result;
     auto dg = problem.getDelayGraph(); // Copy delay graph because we are going to modify it
     // Find the bounds for each job
     for (size_t i = 0; i < problem.getJobsOutput().size(); ++i) {
@@ -318,10 +221,10 @@ ModuleBounds BroadcastLineSolver::getBounds(const FORPFSSPSD::Module &problem,
     return result;
 }
 
-std::tuple<GlobalIntervals, bool>
+std::tuple<FS::GlobalBounds, bool>
 algorithm::BroadcastLineSolver::translateBounds(const FORPFSSPSD::ProductionLine &problem,
-                                                const GlobalIntervals &intervals) {
-    GlobalIntervals result;
+                                                const FS::GlobalBounds &intervals) {
+    FS::GlobalBounds result;
     bool converged = true;
     for (const auto &[moduleId, modIntervals] : intervals) {
         const auto &m = problem[moduleId];
@@ -348,7 +251,7 @@ algorithm::BroadcastLineSolver::translateBounds(const FORPFSSPSD::ProductionLine
 }
 
 void BroadcastLineSolver::propagateIntervals(FORPFSSPSD::ProductionLine &problem,
-                                             const GlobalIntervals &translatedIntervals) {
+                                             const FS::GlobalBounds &translatedIntervals) {
     for (const auto &[moduleId, moduleIntervals] : translatedIntervals) {
         auto &m = problem[moduleId];
         if (problem.hasPrevModule(m)) {
@@ -418,32 +321,35 @@ algorithm::BroadcastLineSolver::mergeSolutions(const FORPFSSPSD::ProductionLine 
                        PartialSolution{solution.getChosenEdgesPerMachine(), std::move(ASAPST)});
     }
 
-    return {result.at(modulesIds.back()).getMakespan(), result};
+    const auto &moduleLast = problem.getLastModule();
+
+    return {result.at(moduleLast.getModuleId()).getRealMakespan(moduleLast), result};
 }
-bool algorithm::BroadcastLineSolver::isConverged(const FORPFSSPSD::IntervalSpec &boundsLeft,
-                                                 const FORPFSSPSD::IntervalSpec &boundsRight) {
-    if (boundsLeft.size() != boundsRight.size()) {
+
+bool algorithm::BroadcastLineSolver::isConverged(const FORPFSSPSD::IntervalSpec &sender,
+                                                 const FORPFSSPSD::IntervalSpec &receiver) {
+    if (sender.size() != receiver.size()) {
         return false;
     }
 
-    for (const auto &[jobId, jobBoundsL] : boundsLeft) {
-        const auto it = boundsRight.find(jobId);
-        if (it == boundsRight.end()) {
+    for (const auto &[jobId, jobBoundsS] : sender) {
+        const auto it = receiver.find(jobId);
+        if (it == receiver.end()) {
             return false;
         }
         const auto &jobBoundsR = it->second;
 
-        if (jobBoundsL.size() != jobBoundsR.size()) {
+        if (jobBoundsS.size() != jobBoundsR.size()) {
             return false;
         }
 
-        for (const auto &[jobId2, boundL] : jobBoundsL) {
+        for (const auto &[jobId2, boundS] : jobBoundsS) {
             const auto it2 = jobBoundsR.find(jobId2);
             if (it2 == jobBoundsR.end()) {
                 return false;
             }
 
-            if (!boundL.converged(it2->second)) {
+            if (!boundS.converged(it2->second)) {
                 return false;
             }
         }
@@ -452,19 +358,11 @@ bool algorithm::BroadcastLineSolver::isConverged(const FORPFSSPSD::IntervalSpec 
     return true;
 }
 
-nlohmann::json algorithm::BroadcastLineSolver::baseResultData(
-        const std::vector<FMS::ModulesSolutions> &solutions,
-        const std::vector<GlobalIntervals> &bounds,
-        const FORPFSSPSD::ProductionLine &problem,
-        std::uint64_t iterations) {
+nlohmann::json
+algorithm::BroadcastLineSolver::baseResultData(const FMS::DistributedSchedulerHistory &history,
+                                               const FORPFSSPSD::ProductionLine &problem,
+                                               std::uint64_t iterations) {
 
-    nlohmann::json result;
-    if (!bounds.empty()) {
-        result["bounds"] = BroadcastLineSolver::boundsToJSON(bounds);
-    }
-    if (!solutions.empty()) {
-        result["sequences"] = saveAllSequences(solutions, problem);
-    }
-
+    nlohmann::json result = history.toJSON(problem);
     return {{"productionLine", std::move(result)}, {"iterations", iterations}};
 }

@@ -1,11 +1,10 @@
+#include "pch/containers.hpp"
+
 #include "delayGraph/export_utilities.h"
 
 #include "FORPFSSPSD/operation.h"
-#include "delay.h"
 #include "delayGraph/delayGraph.h"
 #include "delayGraph/exportStrings.hpp"
-
-#include "pch/containers.hpp"
 
 #include <algorithm>
 #include <fmt/compile.h>
@@ -176,7 +175,7 @@ void saveAsDot(const delayGraph &dg,
                const std::vector<edge> &highlighted) {
     std::ofstream file(filename, std::ios_base::out | std::ios_base::trunc);
     if (!file) {
-        LOG(LOGGER_LEVEL::FATAL, fmt::format("Cannot open file {} to save graph", filename));
+        LOG_C("Cannot open file {} to save graph", filename);
         throw FmsSchedulerException("Conversion to dot failed as cannot open file for writing");
     }
 
@@ -189,7 +188,7 @@ void saveAsDot(const delayGraph &dg,
 
     // Add first the highlighted edges to make sure that they are highlighted
     addDotEdges(dg, highlighted, file, added, "red");
-    addDotEdges(dg, solutionEdges, file, added, "green");
+    addDotEdges<true>(dg, solutionEdges, file, added, "green");
 
     for (const auto &v : dg.get_vertices()) {
         if (DelayGraph::delayGraph::is_source(v) || DelayGraph::delayGraph::is_terminus(v)) {
@@ -202,7 +201,7 @@ void saveAsDot(const delayGraph &dg,
                 v.id,
                 op.jobId,
                 op.operationId,
-                op.jobId * 2,
+                op.jobId.value * 2,
                 static_cast<int>(op.operationId) * -4);
 
         DelayGraph::Edges outEdges;

@@ -11,6 +11,8 @@
  * wrapper around the RapidXML API
  */
 
+#include "pch/containers.hpp"
+
 #include "utils/xmlParser.h"
 
 #include "fmsschedulerexception.h"
@@ -18,7 +20,6 @@
 #include <exception>
 #include <filesystem>
 #include <fmt/core.h>
-#include <fstream>
 
 using namespace rapidxml;
 

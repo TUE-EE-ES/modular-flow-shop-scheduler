@@ -1,5 +1,8 @@
+#include "pch/containers.hpp"
+
 #include "solvers/utils.hpp"
 
+#include "delayGraph/builder.hpp"
 #include "delayGraph/delayGraph.h"
 #include "delayGraph/edge.h"
 #include "delayGraph/export_utilities.h"
@@ -83,16 +86,14 @@ DelayGraph::Edges
 algorithm::SolversUtils::createMachineTrivialSolution(const FORPFSSPSD::Instance &problem,
                                                       FORPFSSPSD::MachineId machineId) {
     const auto &dg = problem.getDelayGraph();
-    const auto &ops = problem.getMachineOperations(machineId);
-    const auto &jobs = problem.jobs();
+    const auto &jobs = problem.getJobsOutput();
 
-    std::unordered_set<FORPFSSPSD::OperationId> machineOpsSet(ops.begin(), ops.end());
     DelayGraph::Edges result;
 
     std::reference_wrapper<const DelayGraph::vertex> vPrevious = dg.get_source(machineId);
-    for (const auto &[jobId, _] : jobs) {
+    for (const auto jobId : jobs) {
         for (const auto &op : problem.getJobOperations(jobId)) {
-            if (machineOpsSet.find(op.operationId) == machineOpsSet.end()) {
+            if (problem.getMachine(op) != machineId) {
                 continue;
             }
 
@@ -100,7 +101,7 @@ algorithm::SolversUtils::createMachineTrivialSolution(const FORPFSSPSD::Instance
             if (dg.has_edge(vPrevious, vCurrent)) {
                 result.emplace_back(dg.get_edge(vPrevious, vCurrent));
             } else {
-                auto value = problem.query(vPrevious, vCurrent);
+                const auto value = problem.query(vPrevious, vCurrent);
                 result.emplace_back(vPrevious.get().id, vCurrent.id, value);
             }
             vPrevious = vCurrent;
@@ -108,4 +109,19 @@ algorithm::SolversUtils::createMachineTrivialSolution(const FORPFSSPSD::Instance
     }
 
     return result;
+}
+
+PathTimes algorithm::SolversUtils::initProblemGraph(FORPFSSPSD::Instance &problemInstance,
+                                                    bool saveGraph) {
+    if (!problemInstance.isGraphInitialized()) {
+        problemInstance.updateDelayGraph(DelayGraph::Builder::build(problemInstance));
+    }
+
+    if (saveGraph) {
+        auto name = fmt::format("input_graph_{}.dot", problemInstance.getProblemName());
+        DelayGraph::export_utilities::saveAsDot(problemInstance.getDelayGraph(), name);
+    }
+
+    auto [result, ASAPST] = SolversUtils::checkSolutionAndOutputIfFails(problemInstance);
+    return ASAPST;
 }

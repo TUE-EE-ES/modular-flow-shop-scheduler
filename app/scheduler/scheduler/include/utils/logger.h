@@ -2,7 +2,7 @@
 #define LOGGER_H
 
 #include <fmt/compile.h>
-#include <utility>
+#include <string_view>
 
 /**
  * @brief Logger levels.
@@ -10,7 +10,7 @@
  */
 enum class LOGGER_LEVEL {
     /// Error that is forcing a shutdown
-    FATAL,
+    CRITICAL,
 
     /// Error to the current operation
     ERROR,
@@ -33,7 +33,7 @@ template <> struct fmt::formatter<LOGGER_LEVEL> : formatter<std::string_view> {
     template <typename FormatContext>
     auto format(const LOGGER_LEVEL level, FormatContext &ctx) -> decltype(ctx.out()) {
         switch (level) {
-        case LOGGER_LEVEL::FATAL:
+        case LOGGER_LEVEL::CRITICAL:
             return BaseFormatter::format("CRITICAL", ctx);
         case LOGGER_LEVEL::ERROR:
             return BaseFormatter::format("ERROR", ctx);
@@ -106,7 +106,7 @@ private:
 
     Logger() = default;
     ~Logger() = default;
-    LOGGER_LEVEL level = LOGGER_LEVEL::FATAL;
+    LOGGER_LEVEL level = LOGGER_LEVEL::CRITICAL;
 };
 
 inline void LOG(std::string_view msg) { Logger::getInstance().log(LOGGER_LEVEL::INFO, msg); }
@@ -142,16 +142,16 @@ inline constexpr void LOG(LOGGER_LEVEL l, CompiledFormat &&cf, Args &&...args) {
 }
 
 template <typename... Args>
-inline constexpr void LOG_F(fmt::format_string<Args...> &&format_str, Args &&...args) {
-    Logger::getInstance().log<LOGGER_LEVEL::FATAL>(
+inline constexpr void LOG_C(fmt::format_string<Args...> &&format_str, Args &&...args) {
+    Logger::getInstance().log<LOGGER_LEVEL::CRITICAL>(
             std::forward<fmt::format_string<Args...>>(format_str), std::forward<Args>(args)...);
 }
 
 template <typename CompiledFormat,
           typename... Args,
           std::enable_if_t<fmt::detail::is_compiled_string<CompiledFormat>::value, int> = 0>
-inline constexpr void LOG_F(CompiledFormat &&cf, Args &&...args) {
-    Logger::getInstance().log<LOGGER_LEVEL::FATAL>(std::forward<CompiledFormat>(cf),
+inline constexpr void LOG_C(CompiledFormat &&cf, Args &&...args) {
+    Logger::getInstance().log<LOGGER_LEVEL::CRITICAL>(std::forward<CompiledFormat>(cf),
                                                    std::forward<Args>(args)...);
 }
 

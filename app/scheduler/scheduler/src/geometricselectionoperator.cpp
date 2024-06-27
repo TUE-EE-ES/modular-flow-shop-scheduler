@@ -1,6 +1,7 @@
-#include "geometricselectionoperator.h"
-
+#include "pch/containers.hpp"
 #include "pch/utils.hpp"
+
+#include "geometricselectionoperator.h"
 
 #include <algorithm>
 
