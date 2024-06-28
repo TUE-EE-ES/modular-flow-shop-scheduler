@@ -2,3 +2,5 @@
 .vscode/
 data/
 scheduler/scheduler/build/
+config/deploys/
+**/*.parquet

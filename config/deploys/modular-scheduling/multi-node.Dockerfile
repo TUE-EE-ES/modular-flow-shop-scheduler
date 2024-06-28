@@ -46,7 +46,6 @@ ln -s /opt/ibm/ILOG/CPLEX_Studio2211/cpoptimizer/bin/x86-64_linux/cpoptimizer /u
 EOF
 
 COPY ./app /app
-COPY ./config/cp-solver.sh /app/data/bin/cp-solver
 WORKDIR /app
 
 # Build the scheduler

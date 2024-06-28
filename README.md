@@ -21,6 +21,7 @@ This repository contains all the code to generate, run and analyse the experimen
     - [Compile MAS implementation](#compile-mas-implementation)
     - [Install CP python dependencies (optional)](#install-cp-python-dependencies-optional)
     - [Running the experiments](#running-the-experiments)
+    - [Analysing the results](#analysing-the-results)
 
 ## Project structure
 
@@ -229,15 +230,18 @@ To run the experiments you need to run the following:
 
 ```bash
 # Generic experiments
-poetry run modfs run --algorithm bhcs simple --modular-algorithm broadcast cocktail constraint --time-limit 600 --in data/gen/generic --out data/run/generic
+poetry run modfs run --algorithm bhcs simple --modular-algorithm broadcast cocktail constraint --time-out 600 --in data/gen/generic --out data/run/generic
 
 # Computational experiments
-poetry run modfs run --algorithm bhcs simple --modular-algorithm broadcast cocktail --time-limit 600 --in data/gen/computational --out data/run/computational
-poetry run modfs run --algorithm bhcs simple --modular-algorithm broadcast cocktail constraint --time-limit 3600 --in data/gen/computational --out data/run/computational
+poetry run modfs run --algorithm bhcs simple --modular-algorithm broadcast cocktail --time-out 600 --in data/gen/computational --out data/run/computational
+poetry run modfs run --algorithm bhcs simple --modular-algorithm broadcast cocktail constraint --time-out 3600 --in data/gen/computational --out data/run/computational
 ```
 
-- *Analysis of the results*: The results are analysed using a python jupyter notebook. The 
-  jupyter dependencies are already installed together with the `modfs` package. To analyse the 
-  results open the jupyter notebook `app/notebooks/papers/distributed-scheduling.ipynb`. Make sure
-  that the working directory is the same as the file.
+### Analysing the results
 
+The results are analysed using a python jupyter notebook. The 
+jupyter dependencies are already installed together with the `modfs` package. To analyse the 
+results open the jupyter notebook `app/notebooks/papers/modular-scheduling.ipynb`. Make sure
+that the working directory is the same as the file.
+
+The figures from the paper are generated in `/app/data/figs/paper/modular-scheduling`.
