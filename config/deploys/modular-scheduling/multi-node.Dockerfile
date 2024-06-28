@@ -1,7 +1,7 @@
 # Must be run from the root directory of the project as such:
-# docker build . -t modular-scheduling:single-node -f ./config/deploys/distributed-scheduling/single-node.Dockerfile
+# docker build . -t modular-scheduling:single-node -f ./config/deploys/modular-scheduling/single-node.Dockerfile
 
-FROM ubuntu:22.04 as debug
+FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive PIP_ROOT_USER_ACTION=ignore
 
@@ -70,7 +70,7 @@ EOF
 RUN <<EOF
 set -e
 julia --project=. --threads=auto ./install.jl
-julia --project=. --threads=auto ./app.jl gen --out data/gen/generic inputs/paper/distributed-scheduling
+julia --project=. --threads=auto ./app.jl gen --out data/gen/generic inputs/paper/modular-scheduling
 mkdir data/gen/computational
 cp -R data/gen/generic/mixed/duplex/bookletA data/gen/generic/mixed/duplex/bookletAB data/gen/computational
 EOF
@@ -84,11 +84,4 @@ cd models
 poetry install --no-root
 EOF
 
-# RUN poetry run modfs run --modular-algorithm broadcast cocktail constraint --algorithm bhcs simple --time-limit 600 --in data/run/
-# RUN poetry run modfs run --algorithm=bhcs --modular-algorithm broadcast cocktail constraint
-# If you already have the data, you can comment the previous line and copy it to the container by uncommenting the following lines
-COPY ./extra/data/run/ /app/data/run/
-
-FROM ubuntu:22.04 as release
-
-RUN cd /app/notebooks/papers/distributed-scheduling && poetry run jupyter execute distributed_scheduling.ipynb
+CMD "poetry" "run" "modfs" "run" "--algorithm=bhcs" "--modular-algorithm" "broadcast" "cocktail" "constraint"

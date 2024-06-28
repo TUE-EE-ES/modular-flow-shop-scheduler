@@ -59,7 +59,7 @@ class cpModelSAGPaper(Model):
             for j in fs.jobs:
                 for op in j.operations.values():
                     ops[module_id][op.idx] = cp.interval_var(
-                        size=op.processing, name=f"O{module_id}_{j.idx}_{op.idx[1]}"
+                        size=op.processing, name=f"O{module_id}_{j.idx}_{op.idx[1]}", optional=False
                     )
 
             for m_id, machine in fs.machines.items():
@@ -82,17 +82,14 @@ class cpModelSAGPaper(Model):
             # -----------------------------------------------------------------------------
 
             # C1: Ensure jobs operations are done in order
-            added = set()
             for j in fs.jobs:
                 op_list = list(j.operations.values())
                 for op_prev_last, op_next_last in zip(op_list, op_list[1:]):
                     # Setup time
                     self.model.add(
                         cp.end_of(ops[module_id][op_prev_last.idx])
-                        + fs.query(op_prev_last.idx, op_next_last.idx)
                         <= cp.start_of(ops[module_id][op_next_last.idx])
                     )
-                    added.add((op_prev_last.idx, op_next_last.idx))
 
             # C2 and C3: Overlap
             for m_id, machine in fs.machines.items():
@@ -106,8 +103,6 @@ class cpModelSAGPaper(Model):
 
             # C4: Finish adding sequence independent setup times
             for op1, op2 in fs.setupIndepDict.keys():
-                if (op1, op2) in added:
-                    continue
                 self.model.add(
                     cp.end_of(ops[module_id][op1]) + fs.query(op1, op2)
                     <= cp.start_of(ops[module_id][op2])
@@ -257,7 +252,7 @@ class cpModelSAGPaper(Model):
                 "optimalityGap": solution.get_objective_gap(),
                 "optimal": solution.is_solution_optimal(),
                 "solved": solution.is_solution(),
-                "timeout": solution.is_solution(),
+                "timeout": solution.is_solution_optimal(),
                 "solution": timing,
             }
         else:
@@ -270,6 +265,7 @@ class cpModelSAGPaper(Model):
                 "optimalityGap": "inf",
                 "solved": False,
                 "solution": timing,
+                "error": "time-out",
                 "timeout": True,
             }
 
