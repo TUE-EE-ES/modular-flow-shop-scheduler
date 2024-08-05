@@ -166,13 +166,14 @@ CocktailLineSolver::solve(FS::ProductionLine &problemInstance, const commandLine
             break;
         }
 
+        ++iterations;
+
         if (converged && convergedLowerBound) {
             return {{mergeSolutions(problemInstance, moduleResults)},
                     baseResultData(history, problemInstance, iterations)};
         }
 
         convergedLowerBound |= converged;
-        ++iterations;
     }
 
     auto data = baseResultData(history, problemInstance, iterations);

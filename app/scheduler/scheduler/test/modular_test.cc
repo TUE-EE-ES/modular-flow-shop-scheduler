@@ -201,7 +201,7 @@ TEST_F(Modular, cocktailConvergence) {
     auto [solutions, data] = TestUtils::runLine(m_args, file);
     ASSERT_GT(solutions.size(), 0);
     EXPECT_EQ(solutions[0].getMakespan(), 95687606);
-    EXPECT_EQ(data["iterations"], 3);
+    EXPECT_EQ(data["iterations"], 4);
 }
 
 // NOLINTEND(*-magic-numbers,*-non-private-*)

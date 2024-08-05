@@ -183,12 +183,12 @@ BroadcastLineSolver::solve(FORPFSSPSD::ProductionLine &problem, const commandLin
         propagateIntervals(problem, transIntervals);
         convergedLowerBound |= converged;
 
+        ++iterations;
+
         if (converged && upperBound) {
             return {ProductionLineSolutions{mergeSolutions(problem, moduleResults)},
                     baseResultData(history, problem, iterations)};
         }
-
-        ++iterations;
     }
 
     auto result = baseResultData(history, problem, iterations);
