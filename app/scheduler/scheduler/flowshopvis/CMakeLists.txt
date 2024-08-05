@@ -1,15 +1,5 @@
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-
-# If using Qt6 we need to add the OpenGLWidgets module
-if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
-    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets OpenGLWidgets)
-    set(QT_LIBRARIES Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::OpenGLWidgets)
-else()
-    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
-    set(QT_LIBRARIES Qt${QT_VERSION_MAJOR}::Widgets)
-endif()
-
+find_package(Qt6 REQUIRED COMPONENTS Widgets OpenGLWidgets)
 
 set(EXEC_VIS flowshopvis)
 file(GLOB_RECURSE EXEC_VIS_HEADERS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp" "${CMAKE_CURRENT_SOURCE_DIR}/*.h")

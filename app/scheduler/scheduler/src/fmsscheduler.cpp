@@ -12,7 +12,6 @@
 #include "solvers/branchbound.h"
 #include "solvers/broadcast_line_solver.hpp"
 #include "solvers/cocktail_line_solver.hpp"
-#include "solvers/dd.hpp"
 #include "solvers/forwardheuristic.h"
 #include "solvers/iteratedgreedy.h"
 #include "solvers/mneh-heuristic.h"
@@ -114,8 +113,6 @@ FmsScheduler::runAlgorithm(FORPFSSPSD::Instance &flowShopInstance,
     case AlgorithmType::MINEH:
     case AlgorithmType::MINEHSIM:
         return {{algorithm::MNEH::solve(flowShopInstance, args)}, {}};
-    case AlgorithmType::DD:
-        return algorithm::DDSolver::solve(flowShopInstance, args);
     case AlgorithmType::GIVEN_SEQUENCE:
         return algorithm::Sequence::solve(flowShopInstance, args, iteration);
     case AlgorithmType::SIMPLE:

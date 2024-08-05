@@ -103,9 +103,6 @@ void FORPFSSPSD::Instance::save(const PartialSolution &best, const commandLineAr
     
     DelayGraph::Edges final_sequence;
     switch (args.algorithm) {
-        case AlgorithmType::DD:
-            final_sequence = best.getAllChosenEdges();
-            break;
         default:
             final_sequence = createFinalSequence(best);
             break;

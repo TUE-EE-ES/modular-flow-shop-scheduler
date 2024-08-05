@@ -1,10 +1,6 @@
 # From: https://stackoverflow.com/a/60856725/4005637
 
-find_package(Qt5 COMPONENTS Core QUIET)
-
-if (NOT Qt5_FOUND)
-    find_packagE(Qt6 COMPONENTS Core REQUIRED)
-endif()
+find_package(Qt6 COMPONENTS Core REQUIRED)
 
 # get absolute path to qmake, then use it to find windeployqt executable
 

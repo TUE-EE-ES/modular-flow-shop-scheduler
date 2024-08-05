@@ -122,8 +122,6 @@ std::string_view AlgorithmType::fullName() const {
         return "anytime heuristic";
     case Value::ITERATED_GREEDY:
         return "iterated greedy solver";
-    case Value::DD:
-        return "Decision diagram";
     case Value::SIMPLE:
         return "simple non-interleaving scheduler";
     }
@@ -161,8 +159,6 @@ std::string_view AlgorithmType::shortName() const {
         return "anytime";
     case Value::ITERATED_GREEDY:
         return "iterated-greedy";
-    case Value::DD:
-        return "dd";
     case Value::SIMPLE:
         return "simple";
     }

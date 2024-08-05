@@ -24,8 +24,6 @@ public:
         GIVEN_SEQUENCE,  /// Use a given sequence to generate a schedule
         ANYTIME,         /// Anytime solver for n-re-entrancy
         ITERATED_GREEDY, /// Iterated greedy solver for n-re-entrancy
-        DD,              /// Decision diagram solver
-        DDSeed,          /// Decision diagram solver built around a seed solution
         SIMPLE           /// Simple scheduler that does not interleave operations
     };
 
@@ -64,7 +62,6 @@ public:
             Value::GIVEN_SEQUENCE,
             Value::ANYTIME,
             Value::ITERATED_GREEDY,
-            Value::DD,
             Value::SIMPLE
     };
 
