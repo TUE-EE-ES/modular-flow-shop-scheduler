@@ -1,30 +1,27 @@
-#include "pch/containers.hpp" // Precompiled headers always go first
+#include "fms/pch/containers.hpp" // Precompiled headers always go first
+#include "fms/pch/fmt.hpp"
 
-#include "solvers/cocktail_line_solver.hpp"
+#include "fms/solvers/cocktail_line_solver.hpp"
 
-#include "FORPFSSPSD/indices.hpp"
-#include "FORPFSSPSD/module.hpp"
-#include "delayGraph/builder.hpp"
-#include "fmsscheduler.h"
-#include "solvers/broadcast_line_solver.hpp"
-#include "solvers/modular_args.hpp"
-#include "solvers/solver.h"
+#include "fms/cg/builder.hpp"
+#include "fms/problem/indices.hpp"
+#include "fms/problem/module.hpp"
+#include "fms/scheduler.hpp"
+#include "fms/solvers/broadcast_line_solver.hpp"
+#include "fms/solvers/modular_args.hpp"
+#include "fms/solvers/solver.hpp"
 
-#include <fmt/compile.h>
+namespace fms::solvers::CocktailLineSolver {
 
-using namespace algorithm;
-using namespace algorithm::BroadcastLineSolver;
-
-CocktailLineSolver::SingleIterationResult
-CocktailLineSolver::singleIteration(FS::ProductionLine &instance,
-                                    const commandLineArgs &args,
-                                    const uint64_t iterations,
-                                    const bool convergedLowerBound,
-                                    const ModularArgs &argsMod,
-                                    FMS::DistributedSchedulerHistory &history) {
-    FS::ModuleId moduleId = instance.getFirstModuleId();
-    FS::ModuleBounds bounds;
-    FMS::ModulesSolutions moduleResults;
+SingleIterationResult singleIteration(problem::ProductionLine &instance,
+                                      const cli::CLIArgs &args,
+                                      const uint64_t iterations,
+                                      const bool convergedLowerBound,
+                                      const cli::ModularArgs &argsMod,
+                                      DistributedSchedulerHistory &history) {
+    problem::ModuleId moduleId = instance.getFirstModuleId();
+    problem::ModuleBounds bounds;
+    ModulesSolutions moduleResults;
     history.newIteration();
 
     bool first = true;
@@ -51,10 +48,13 @@ CocktailLineSolver::singleIteration(FS::ProductionLine &instance,
         }
 
         try {
-            auto [result, _] = FmsScheduler::runAlgorithm(module, args, 2 * iterations);
+            auto [result, algorithmData] =
+                    Scheduler::runAlgorithm(instance, module, args, 2 * iterations);
+            history.addAlgorithmData(moduleId, std::move(algorithmData));
+
             auto &modResult = result.front();
 
-            bounds = getBounds(module, modResult, upperBound, side);
+            bounds = BroadcastLineSolver::getBounds(module, modResult, upperBound, side);
 
             if (argsMod.selfBounds) {
                 module.addInputBounds(bounds.in);
@@ -67,7 +67,7 @@ CocktailLineSolver::singleIteration(FS::ProductionLine &instance,
             }
         } catch (FmsSchedulerException &e) {
             LOG_E("Cocktail: Exception while running algorithm: {}", e.what());
-            return {{}, false, ErrorStrings::kLocalScheduler};
+            return {{}, false, BroadcastLineSolver::ErrorStrings::kLocalScheduler};
         }
     }
 
@@ -100,12 +100,15 @@ CocktailLineSolver::singleIteration(FS::ProductionLine &instance,
         module.addOutputBounds(translated);
 
         try {
-            auto [result, _] = FmsScheduler::runAlgorithm(module, args, 2 * iterations + 1);
+            auto [result, algorithmData] =
+                    Scheduler::runAlgorithm(instance, module, args, 2 * iterations + 1);
+            history.addAlgorithmData(moduleId, std::move(algorithmData));
             auto &modResult = result.front();
 
             // We use both sides because one side is used for propagation and the other for
             // convergence check
-            bounds = getBounds(module, modResult, upperBound, BoundsSide::BOTH);
+            bounds =
+                    BroadcastLineSolver::getBounds(module, modResult, upperBound, BoundsSide::BOTH);
 
             if (argsMod.selfBounds) {
                 module.addInputBounds(bounds.in);
@@ -114,52 +117,52 @@ CocktailLineSolver::singleIteration(FS::ProductionLine &instance,
 
             history.addModule(currentModuleId, bounds, modResult);
 
-
             // While we are iterating backwards, (e.g., n <- n_{i-1}), we are sending the bounds
-            // forward (e.g., n_{i} sends to n_{i+1}). We can detect convergence by checking that 
+            // forward (e.g., n_{i} sends to n_{i+1}). We can detect convergence by checking that
             // the bounds that we are sending forwards will not cause module n_{i+1} to update
             // its local problem. It won't cause an update if the bounds that we are sending
             // are "weaker" than the bounds that module n_{i+1} already sent to module n_{i}.
             // If this is true for all iterations backwards, then we can stop the iterations.
             const auto &moduleNext = instance.getNextModule(module);
             auto translatedBack = instance.toInputBounds(moduleNext, bounds.out);
-            converged &= isConverged(translatedBack, oldBoundsIn);
+            converged &= BroadcastLineSolver::isConverged(translatedBack, oldBoundsIn);
 
             moduleResults.emplace(currentModuleId, std::move(modResult));
         } catch (FmsSchedulerException &e) {
             LOG_E("Cocktail: Exception while running algorithm: {}", e.what());
-            return {{}, false, ErrorStrings::kLocalScheduler};
+            return {{}, false, BroadcastLineSolver::ErrorStrings::kLocalScheduler};
         }
     }
 
     if (argsMod.timer.isTimeUp()) {
         LOG_W("Cocktail: Time limit reached");
-        return {{}, false, ErrorStrings::kTimeOut};
+        return {{}, false, BroadcastLineSolver::ErrorStrings::kTimeOut};
     }
 
     return {std::move(moduleResults), converged, ""};
 }
 
-std::tuple<std::vector<FMS::ProductionLineSolution>, nlohmann::json>
-CocktailLineSolver::solve(FS::ProductionLine &problemInstance, const commandLineArgs &args) {
+std::tuple<std::vector<ProductionLineSolution>, nlohmann::json>
+solve(problem::ProductionLine &problemInstance, const cli::CLIArgs &args) {
     uint64_t iterations = 0;
-    const auto argsMod = ModularArgs::fromArgs(args);
+    const auto argsMod = cli::ModularArgs::fromArgs(args);
 
     auto &modules = problemInstance.modules();
     bool convergedLowerBound = false;
+    AlgorithmsData algorithmsData;
 
     // Generate the delay graphs of each module
     for (auto &[moduleId, module] : modules) {
-        module.updateDelayGraph(DelayGraph::Builder::build(module));
+        module.updateDelayGraph(cg::Builder::build(module));
     }
 
-    FS::ModuleId moduleId = problemInstance.getFirstModuleId();
+    problem::ModuleId moduleId = problemInstance.getFirstModuleId();
     std::string globalErrorStr;
-    FMS::DistributedSchedulerHistory history(argsMod.storeSequence, argsMod.storeBounds);
+    DistributedSchedulerHistory history(argsMod.storeSequence, argsMod.storeBounds);
 
-    while (iterations < args.maxIterations && argsMod.timer.isRunning() && globalErrorStr.empty()) {
-        auto [moduleResults, converged, errorStr] =
-                singleIteration(problemInstance, args, iterations, convergedLowerBound, argsMod, history);
+    while (iterations < argsMod.maxIterations && argsMod.timer.isRunning() && globalErrorStr.empty()) {
+        auto [moduleResults, converged, errorStr] = singleIteration(
+                problemInstance, args, iterations, convergedLowerBound, argsMod, history);
 
         if (!errorStr.empty()) {
             globalErrorStr = std::move(errorStr);
@@ -169,20 +172,22 @@ CocktailLineSolver::solve(FS::ProductionLine &problemInstance, const commandLine
         ++iterations;
 
         if (converged && convergedLowerBound) {
-            return {{mergeSolutions(problemInstance, moduleResults)},
-                    baseResultData(history, problemInstance, iterations)};
+            return {{BroadcastLineSolver::mergeSolutions(problemInstance, moduleResults)},
+                    BroadcastLineSolver::baseResultData(history, problemInstance, iterations)};
         }
 
         convergedLowerBound |= converged;
     }
 
-    auto data = baseResultData(history, problemInstance, iterations);
+    auto data = BroadcastLineSolver::baseResultData(history, problemInstance, iterations);
     data["timeout"] = argsMod.timer.isTimeUp();
     if (!globalErrorStr.empty()) {
         data["error"] = globalErrorStr;
     } else {
-        data["error"] = ErrorStrings::kNoConvergence;
+        data["error"] = BroadcastLineSolver::ErrorStrings::kNoConvergence;
     }
 
     return {ProductionLineSolutions{}, std::move(data)};
 }
+
+} // namespace fms::solvers::CocktailLineSolver

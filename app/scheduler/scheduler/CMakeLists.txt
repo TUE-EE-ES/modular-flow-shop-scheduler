@@ -1,12 +1,12 @@
 # Template from: https://gitlab.com/CLIUtils/modern-cmake/-/blob/master/examples/extended-project/CMakeLists.txt
 
-cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.20...3.29 FATAL_ERROR)
 project(
-    fms-scheduler 
-    VERSION 1.0 
-    DESCRIPTION "Flexible Manufacturing System Scheduler"
-    LANGUAGES CXX
-    )
+        fms-scheduler
+        VERSION 1.0
+        DESCRIPTION "Flexible Manufacturing System Scheduler"
+        LANGUAGES CXX
+)
 
 option(CODE_COVERAGE "Enable code coverage" OFF)
 option(PROFILING "Enable profiling" OFF)
@@ -26,9 +26,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     # Let's ensure -std=c++xx instead of -std=g++xx
     set(CMAKE_CXX_EXTENSIONS OFF)
     set(CMAKE_CXX_STANDARD 20)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
     # Set output folders
-    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib) 
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
@@ -41,12 +42,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     # Let's nicely support folders in IDEs
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-    # Testing only available if this is the main app
-    # Note this needs to be done in the main CMakeLists
-    # since it calls enable_testing, which must be in the
-    # main CMakeLists.
+    # Enable testing
     include(CTest)
 
+    # Doxygen setup
     find_package(Doxygen OPTIONAL_COMPONENTS dot)
     if (Doxygen_FOUND)
         add_subdirectory(doc)
@@ -77,8 +76,8 @@ if(BUILD_TOOLS)
     add_subdirectory(flowshopvis)
 endif()
 
-# Testing only available if this is the main app (BUILD_TESTING is defined when 
-# including CTest) 
+# Testing only available if this is the main app (BUILD_TESTING is defined when
+# including CTest)
 # Emergency override FMS_SCHEDULER_BUILD_TESTS provided as well
 if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING) OR FMS_SCHEDULER_BUILD_TESTS)
     add_subdirectory(test)

@@ -19,7 +19,7 @@ from pathlib import Path
 
 import modfs.utils as utils
 
-from modfs.runner.tasks.runner import Executor
+from modfs.runner.tasks.runner import Executor, ValidAlgorithms
 
 DEFAULT_ARGS = {
     "print_defaults": False,
@@ -96,7 +96,7 @@ def add_arguments(parser: argparse.ArgumentParser):
         help="Algorithm used by the scheduler",
         action="extend",
         nargs="+",
-        choices=["bhcs", "mdbhcs", "backtrack", "dd", "simple"],
+        choices=[v for v in ValidAlgorithms],
     )
     parser.add_argument(
         "--modular-algorithm",

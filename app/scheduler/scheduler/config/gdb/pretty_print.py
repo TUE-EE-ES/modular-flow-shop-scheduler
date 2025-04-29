@@ -23,6 +23,14 @@ class OperationPrinter:
 
     def to_string(self):
         return "({}, {})".format(self.val['jobId'], self.val['operationId'])
+    
+    def display_hint(self):
+        return 'array'
+    
+    def children(self):
+        return [('jobId', self.val['jobId']), 
+                ('operationId', self.val['operationId']), 
+                ('maintId', self.val['maintId'])]
 
 
 class MathIntervalPrinter:
@@ -42,9 +50,9 @@ class MathIntervalPrinter:
 
 def build_pretty_printer():
     pp = gdb.printing.RegexpCollectionPrettyPrinter("scheduler")
-    pp.add_printer('FMS::Utils::StrongType', '^FMS::Utils::StrongType<.*>$', StrongTypePrinter)
-    pp.add_printer('FORPFSSPSD::operation', '^FORPFSSPSD::operation$', OperationPrinter)
-    pp.add_printer('Math::Interval', '^Math::Interval<.*>$', MathIntervalPrinter)
+    pp.add_printer('fms::utils::StrongType', '^fms::utils::StrongType<.*>$', StrongTypePrinter)
+    pp.add_printer('fms::problem::Operation', '^fms::problem::Operation$', OperationPrinter)
+    pp.add_printer('fms::math::Interval', '^fms::math::Interval<.*>$', MathIntervalPrinter)
     
     return pp
 

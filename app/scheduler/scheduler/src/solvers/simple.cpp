@@ -1,20 +1,19 @@
-#include "pch/containers.hpp"
+#include "fms/pch/containers.hpp"
 
-#include "solvers/simple.hpp"
+#include "fms/solvers/simple.hpp"
 
-#include "solvers/utils.hpp"
+#include "fms/solvers/utils.hpp"
 
-using namespace DelayGraph;
-using namespace algorithm;
-using namespace algorithm::SimpleScheduler;
+using namespace fms;
+using namespace fms::solvers;
 
-SolverOutput algorithm::SimpleScheduler::solve(FORPFSSPSD::Instance &problemInstance,
-                                               const commandLineArgs &args) {
+SolverOutput SimpleScheduler::solve(problem::Instance &problemInstance,
+                                    const cli::CLIArgs &args) {
     LOG("SimpleScheduler: Solving problem instance");
 
     SolversUtils::initProblemGraph(problemInstance);
     auto solution = SolversUtils::createTrivialSolution(problemInstance);
 
     // Return the solutions and the JSON object
-    return {{std::move(solution)}, {}};
+    return {{std::move(solution)}, nlohmann::json::object()};
 }

@@ -11,9 +11,8 @@ Checks:  >
   -bugprone-easily-swappable-parameters,
   -bugprone-unchecked-optional-access,
   -abseil-string-find-str-contains,
-  -cert-dcl21-cpp
+  -cert-dcl21-cpp,
+  -misc-include-cleaner
 CheckOptions:
-    - key: misc-non-private-member-variables-in-classes.IgnorePublicMemberVariables
-      value: 1
-    - key: cppcoreguidelines-non-private-member-variables-in-classes.IgnorePublicMemberVariables
-      value: 1
+    misc-non-private-member-variables-in-classes.IgnorePublicMemberVariables: 1
+    cppcoreguidelines-non-private-member-variables-in-classes.IgnorePublicMemberVariables: 1

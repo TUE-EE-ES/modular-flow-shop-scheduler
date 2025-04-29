@@ -13,9 +13,9 @@ string(STRIP "${GIT_COUNT}" GIT_COUNT)
 string(STRIP "${GIT_REV_DATE}" GIT_REV_DATE)
 
 set(VERSION 
-"#include \"versioning.h\"
+"#include \"fms/versioning.hpp\"
 
-const char* const VERSION = \"${GIT_BRANCH}-${GIT_COUNT}-${GIT_REV_DATE}\";
+constexpr const std::string_view VERSION = \"${GIT_BRANCH}-${GIT_COUNT}-${GIT_REV_DATE}\";
 ")
 
 if(EXISTS ${VERSION_FILE_NAME})

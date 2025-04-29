@@ -1,35 +1,35 @@
-#include "pch/containers.hpp" // Precompiled headers always go first
+#include "fms/pch/containers.hpp" // Precompiled headers always go first
 
-#include "solvers/broadcast_line_solver.hpp"
+#include "fms/solvers/broadcast_line_solver.hpp"
 
-#include "FORPFSSPSD/FORPFSSPSD.h"
-#include "FORPFSSPSD/boundary.hpp"
-#include "FORPFSSPSD/indices.hpp"
-#include "FORPFSSPSD/module.hpp"
-#include "FORPFSSPSD/operation.h"
-#include "delay.h"
-#include "delayGraph/delayGraph.h"
-#include "fmsscheduler.h"
-#include "longest_path.h"
-#include "math/interval.hpp"
-#include "partialsolution.h"
-#include "solvers/modular_args.hpp"
-#include "solvers/sequence.hpp"
-#include "solvers/solver.h"
+#include "fms/algorithms/longest_path.hpp"
+#include "fms/cg/constraint_graph.hpp"
+#include "fms/delay.hpp"
+#include "fms/math/interval.hpp"
+#include "fms/problem/boundary.hpp"
+#include "fms/problem/flow_shop.hpp"
+#include "fms/problem/indices.hpp"
+#include "fms/problem/module.hpp"
+#include "fms/problem/operation.hpp"
+#include "fms/scheduler.hpp"
+#include "fms/solvers/modular_args.hpp"
+#include "fms/solvers/partial_solution.hpp"
+#include "fms/solvers/sequence.hpp"
+#include "fms/solvers/solver.hpp"
 
 #include <cstdint>
 #include <ranges>
 
-using namespace algorithm;
-using namespace DelayGraph;
+using namespace fms;
+using namespace fms::solvers;
 
 namespace {
 
 template <bool negate = true>
 std::optional<delay> getDifferenceOptional(const std::vector<delay> &ST,
-                                           const VertexID vPrevious,
-                                           const VertexID vNext) {
-    if (ST[vNext] != LongestPath::kASAPStartValue) {
+                                           const cg::VertexId vPrevious,
+                                           const cg::VertexId vNext) {
+    if (ST[vNext] != algorithms::paths::kASAPStartValue) {
         if constexpr (negate) {
             return {ST[vPrevious] - ST[vNext]};
         }
@@ -38,37 +38,37 @@ std::optional<delay> getDifferenceOptional(const std::vector<delay> &ST,
     return std::nullopt;
 }
 
-using VectorSideFunc = const FS::operation &(const FS::OperationsVector &);
+using VectorSideFunc = const problem::Operation &(const problem::OperationsVector &);
 
-inline const FS::operation &front(const FS::OperationsVector &v) { return v.front(); }
+inline const problem::Operation &front(const problem::OperationsVector &v) { return v.front(); }
 
-inline const FS::operation &back(const FS::OperationsVector &v) { return v.back(); }
+inline const problem::Operation &back(const problem::OperationsVector &v) { return v.back(); }
 
-void updateBounds(std::unordered_map<FS::JobId, FS::TimeInterval> &intervals,
-                  const FS::JobId jobId,
+void updateBounds(std::unordered_map<problem::JobId, problem::TimeInterval> &intervals,
+                  const problem::JobId jobId,
                   const std::optional<delay> &min,
                   const std::optional<delay> &max) {
     auto it = intervals.find(jobId);
     if (it != intervals.end()) {
         it->second.replace(min, max);
     } else {
-        intervals.emplace(jobId, Math::Interval<delay>{min, max});
+        intervals.emplace(jobId, math::Interval<delay>{min, max});
     }
 }
 
 template <VectorSideFunc side>
-void updateLowerBounds(FORPFSSPSD::IntervalSpec &intervals,
-                       const VertexID vertexCurr,
+void updateLowerBounds(problem::IntervalSpec &intervals,
+                       const cg::VertexId vertexCurr,
                        std::size_t jobIndex,
-                       const FS::Instance &problem,
-                       const PathTimes &ASAPST) {
+                       const problem::Instance &problem,
+                       const algorithms::paths::PathTimes &ASAPST) {
     const auto &jobsOut = problem.getJobsOutput();
     const auto jobIdCurr = jobsOut[jobIndex];
     auto &jobFstBounds = intervals[jobIdCurr];
     for (size_t jobIndexNext = jobIndex + 1; jobIndexNext < jobsOut.size(); ++jobIndexNext) {
         const auto jobIdNext = jobsOut[jobIndexNext];
-        const auto &opNext = side(problem.getJobOperations(jobIdNext));
-        const auto vertexNext = problem.getDelayGraph().get_vertex(opNext).id;
+        const auto &opNext = side(problem.jobs(jobIdNext));
+        const auto vertexNext = problem.getDelayGraph().getVertex(opNext).id;
 
         const auto min = ASAPST[vertexNext] - ASAPST[vertexCurr];
         updateBounds(jobFstBounds, jobIdNext, min, {});
@@ -76,17 +76,17 @@ void updateLowerBounds(FORPFSSPSD::IntervalSpec &intervals,
 }
 
 template <VectorSideFunc side>
-void updateUpperBounds(FORPFSSPSD::IntervalSpec &intervals,
-                       const VertexID vertexCurr,
+void updateUpperBounds(problem::IntervalSpec &intervals,
+                       const cg::VertexId vertexCurr,
                        std::size_t jobIndex,
-                       const FS::Instance &problem,
-                       const PathTimes &ASAPSTStatic) {
+                       const problem::Instance &problem,
+                       const algorithms::paths::PathTimes &ASAPSTStatic) {
     const auto &jobsOut = problem.getJobsOutput();
     const auto jobIdCurr = jobsOut[jobIndex];
     for (size_t jobIndexPrev = 0; jobIndexPrev < jobIndex; ++jobIndexPrev) {
         const auto jobIdPrev = jobsOut[jobIndexPrev];
-        const auto &opPrev = side(problem.getJobOperations(jobIdPrev));
-        const auto vertexPrev = problem.getDelayGraph().get_vertex_id(opPrev);
+        const auto &opPrev = side(problem.jobs(jobIdPrev));
+        const auto vertexPrev = problem.getDelayGraph().getVertexId(opPrev);
 
         // For the upper bound, check the distance from the current job to the previous job
         std::optional max = getDifferenceOptional(ASAPSTStatic, vertexCurr, vertexPrev);
@@ -95,29 +95,29 @@ void updateUpperBounds(FORPFSSPSD::IntervalSpec &intervals,
 }
 
 template <VectorSideFunc side>
-void computeAndAddBounds(FORPFSSPSD::IntervalSpec &bounds,
-                         const FORPFSSPSD::Module &problem,
-                         delayGraph &dg,
+void computeAndAddBounds(problem::IntervalSpec &bounds,
+                         const problem::Module &problem,
+                         cg::ConstraintGraph &dg,
                          const PartialSolution &solution,
                          const size_t jobIndex,
                          const bool upperBound = false) {
     const auto &jobsOut = problem.getJobsOutput();
 
     // Gets the first or last operation depending on Side()
-    const auto &opCurr = side(problem.getJobOperations(jobsOut[jobIndex]));
-    const auto vertexCurr = dg.get_vertex(opCurr).id;
+    const auto &opCurr = side(problem.jobs(jobsOut[jobIndex]));
+    const auto vertexCurr = dg.getVertexId(opCurr);
     const bool isNotLast = jobIndex + 1 < jobsOut.size();
     const bool isNotFirst = jobIndex > 0;
 
     if (isNotFirst && !upperBound) {
         // Upper bound is static only
-        const auto ASAPSTStatic = LongestPath::computeASAPSTFromNode(dg, vertexCurr);
+        const auto ASAPSTStatic = algorithms::paths::computeASAPSTFromNode(dg, vertexCurr);
         updateUpperBounds<side>(bounds, vertexCurr, jobIndex, problem, ASAPSTStatic);
     }
 
     if (isNotLast || upperBound) {
-        const auto edges = solution.getAllChosenEdges();
-        const auto ASAPST = LongestPath::computeASAPSTFromNode(dg, vertexCurr, edges);
+        const auto edges = solution.getAllChosenEdges(problem);
+        const auto ASAPST = algorithms::paths::computeASAPSTFromNode(dg, vertexCurr, edges);
         if (isNotLast) {
             updateLowerBounds<side>(bounds, vertexCurr, jobIndex, problem, ASAPST);
         }
@@ -128,11 +128,11 @@ void computeAndAddBounds(FORPFSSPSD::IntervalSpec &bounds,
     }
 }
 
-nlohmann::json saveAllSequences(const std::vector<FMS::ModulesSolutions> &solutions,
-                                const FORPFSSPSD::ProductionLine &problem) {
+nlohmann::json saveAllSequences(const std::vector<ModulesSolutions> &solutions,
+                                const problem::ProductionLine &problem) {
     nlohmann::json result;
     for (const auto &solution : solutions) {
-        auto sequences = Sequence::saveProductionLineSequences(solution, problem);
+        auto sequences = sequence::saveProductionLineSequences(solution, problem);
         result.push_back(sequences);
     }
     return result;
@@ -140,27 +140,30 @@ nlohmann::json saveAllSequences(const std::vector<FMS::ModulesSolutions> &soluti
 
 } // namespace
 
-std::tuple<std::vector<FMS::ProductionLineSolution>, nlohmann::json>
-BroadcastLineSolver::solve(FORPFSSPSD::ProductionLine &problem, const commandLineArgs &args) {
+std::tuple<std::vector<ProductionLineSolution>, nlohmann::json>
+BroadcastLineSolver::solve(problem::ProductionLine &problem, const cli::CLIArgs &args) {
 
-    const auto argsMod = ModularArgs::fromArgs(args);
+    const auto argsMod = cli::ModularArgs::fromArgs(args);
     uint64_t iterations = 0;
 
     auto &modules = problem.modules();
-    FMS::DistributedSchedulerHistory history(argsMod.storeSequence, argsMod.storeBounds);
+    DistributedSchedulerHistory history(argsMod.storeSequence, argsMod.storeBounds);
     // Wait for convergence of lower bound before enabling upper bound
     bool convergedLowerBound = false;
 
-    while (iterations < args.maxIterations && argsMod.timer.isRunning()) {
-        FMS::ModulesSolutions moduleResults;
-        FS::GlobalBounds newIntervals;
+    while (iterations < argsMod.maxIterations && argsMod.timer.isRunning()) {
+        ModulesSolutions moduleResults;
+        problem::GlobalBounds newIntervals;
         newIntervals.reserve(modules.size());
         const bool upperBound = convergedLowerBound;
 
         for (auto &[moduleId, m] : modules) {
             m.setIteration(iterations);
             try {
-                auto [result, _] = FmsScheduler::runAlgorithm(m, args, iterations);
+                auto [result, algorithmData] =
+                        Scheduler::runAlgorithm(problem, m, args, iterations);
+                history.addAlgorithmData(moduleId, std::move(algorithmData));
+
                 auto bounds = getBounds(m, result.front(), upperBound);
 
                 if (argsMod.selfBounds) {
@@ -201,11 +204,11 @@ BroadcastLineSolver::solve(FORPFSSPSD::ProductionLine &problem, const commandLin
     return {ProductionLineSolutions{}, std::move(result)};
 }
 
-FS::ModuleBounds BroadcastLineSolver::getBounds(const FORPFSSPSD::Module &problem,
-                                            const PartialSolution &solution,
-                                            const bool upperBound,
-                                            const BoundsSide intervalSide) {
-    FS::ModuleBounds result;
+problem::ModuleBounds BroadcastLineSolver::getBounds(const problem::Module &problem,
+                                                     const PartialSolution &solution,
+                                                     const bool upperBound,
+                                                     const BoundsSide intervalSide) {
+    problem::ModuleBounds result;
     auto dg = problem.getDelayGraph(); // Copy delay graph because we are going to modify it
     // Find the bounds for each job
     for (size_t i = 0; i < problem.getJobsOutput().size(); ++i) {
@@ -221,10 +224,10 @@ FS::ModuleBounds BroadcastLineSolver::getBounds(const FORPFSSPSD::Module &proble
     return result;
 }
 
-std::tuple<FS::GlobalBounds, bool>
-algorithm::BroadcastLineSolver::translateBounds(const FORPFSSPSD::ProductionLine &problem,
-                                                const FS::GlobalBounds &intervals) {
-    FS::GlobalBounds result;
+std::tuple<problem::GlobalBounds, bool>
+BroadcastLineSolver::translateBounds(const problem::ProductionLine &problem,
+                                     const problem::GlobalBounds &intervals) {
+    problem::GlobalBounds result;
     bool converged = true;
     for (const auto &[moduleId, modIntervals] : intervals) {
         const auto &m = problem[moduleId];
@@ -250,8 +253,8 @@ algorithm::BroadcastLineSolver::translateBounds(const FORPFSSPSD::ProductionLine
     return {std::move(result), converged};
 }
 
-void BroadcastLineSolver::propagateIntervals(FORPFSSPSD::ProductionLine &problem,
-                                             const FS::GlobalBounds &translatedIntervals) {
+void BroadcastLineSolver::propagateIntervals(problem::ProductionLine &problem,
+                                             const problem::GlobalBounds &translatedIntervals) {
     for (const auto &[moduleId, moduleIntervals] : translatedIntervals) {
         auto &m = problem[moduleId];
         if (problem.hasPrevModule(m)) {
@@ -264,10 +267,9 @@ void BroadcastLineSolver::propagateIntervals(FORPFSSPSD::ProductionLine &problem
     }
 }
 
-FMS::ProductionLineSolution
-algorithm::BroadcastLineSolver::mergeSolutions(const FORPFSSPSD::ProductionLine &problem,
-                                               FMS::ModulesSolutions &modulesSolutions) {
-    FMS::ModulesSolutions result;
+ProductionLineSolution BroadcastLineSolver::mergeSolutions(const problem::ProductionLine &problem,
+                                                           ModulesSolutions &modulesSolutions) {
+    ModulesSolutions result;
     const auto &modulesIds = problem.moduleIds();
     result.reserve(modulesIds.size());
     result.emplace(modulesIds.front(), modulesSolutions.at(modulesIds.front()));
@@ -286,17 +288,17 @@ algorithm::BroadcastLineSolver::mergeSolutions(const FORPFSSPSD::ProductionLine 
 
         for (const auto &[jobId, ops] : modPrev.jobs()) {
             // Find the output time of the job
-            const auto timeOutput = ASAPSTPrev.at(dgPrev.get_vertex_id(ops.back()));
+            const auto timeOutput = ASAPSTPrev.at(dgPrev.getVertexId(ops.back()));
 
             // Update start times of the first operation in the current module with the output time
             // of the same job on the previous module and the transfer constraints
-            const auto &vertexId = dg.get_vertex_id(module.jobs(jobId).front());
+            const auto &vertexId = dg.getVertexId(module.jobs(jobId).front());
             ASAPST[vertexId] = timeOutput + problem.query(modPrev, jobId);
         }
 
         // Check for positive cycles with the new ASAPST
-        const auto edgesSequence = solution.getAllChosenEdges();
-        const auto pathResult = LongestPath::computeASAPST(dg, ASAPST, edgesSequence);
+        const auto edgesSequence = solution.getAllChosenEdges(module);
+        const auto pathResult = algorithms::paths::computeASAPST(dg, ASAPST, edgesSequence);
 
         if (!pathResult.positiveCycle.empty()) {
             throw FmsSchedulerException(
@@ -305,9 +307,9 @@ algorithm::BroadcastLineSolver::mergeSolutions(const FORPFSSPSD::ProductionLine 
 
         // Check that all jobs respect the due date
         for (const auto &[jobId, ops] : modPrev.jobs()) {
-            const auto timePrev = ASAPSTPrev.at(dgPrev.get_vertex_id(ops.back()));
+            const auto timePrev = ASAPSTPrev.at(dgPrev.getVertexId(ops.back()));
 
-            const auto &vertexId = dg.get_vertex_id(module.jobs(jobId).front());
+            const auto &vertexId = dg.getVertexId(module.jobs(jobId).front());
             const auto timeDiff = ASAPST.at(vertexId) - timePrev;
 
             const auto &dueDate = problem.getTransferDueDate(modPrev, jobId);
@@ -318,7 +320,7 @@ algorithm::BroadcastLineSolver::mergeSolutions(const FORPFSSPSD::ProductionLine 
         }
         solution.setASAPST(ASAPST);
         result.emplace(module.getModuleId(),
-                       PartialSolution{solution.getChosenEdgesPerMachine(), std::move(ASAPST)});
+                       PartialSolution{solution.getChosenSequencesPerMachine(), std::move(ASAPST)});
     }
 
     const auto &moduleLast = problem.getLastModule();
@@ -326,8 +328,8 @@ algorithm::BroadcastLineSolver::mergeSolutions(const FORPFSSPSD::ProductionLine 
     return {result.at(moduleLast.getModuleId()).getRealMakespan(moduleLast), result};
 }
 
-bool algorithm::BroadcastLineSolver::isConverged(const FORPFSSPSD::IntervalSpec &sender,
-                                                 const FORPFSSPSD::IntervalSpec &receiver) {
+bool BroadcastLineSolver::isConverged(const problem::IntervalSpec &sender,
+                                      const problem::IntervalSpec &receiver) {
     if (sender.size() != receiver.size()) {
         return false;
     }
@@ -358,10 +360,9 @@ bool algorithm::BroadcastLineSolver::isConverged(const FORPFSSPSD::IntervalSpec 
     return true;
 }
 
-nlohmann::json
-algorithm::BroadcastLineSolver::baseResultData(const FMS::DistributedSchedulerHistory &history,
-                                               const FORPFSSPSD::ProductionLine &problem,
-                                               std::uint64_t iterations) {
+nlohmann::json BroadcastLineSolver::baseResultData(const DistributedSchedulerHistory &history,
+                                                   const problem::ProductionLine &problem,
+                                                   std::uint64_t iterations) {
 
     nlohmann::json result = history.toJSON(problem);
     return {{"productionLine", std::move(result)}, {"iterations", iterations}};

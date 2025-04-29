@@ -6,7 +6,7 @@ from collections.abc import Callable
 
 import pandas as pd
 import plotly.express as px
-from plotly.basedatatypes import BaseFigure
+from plotly.graph_objects import Figure
 
 
 DEFAULT_LABELS = {
@@ -31,7 +31,7 @@ DEFAULT_LABELS = {
 }
 
 
-def plot_line_defaults(**kwargs) -> BaseFigure:
+def plot_line_defaults(**kwargs) -> Figure:
     """Make a line plot with some defaults already set. You can override them by passing them as
     keyword arguments.
 
@@ -55,7 +55,7 @@ def plot_line_defaults(**kwargs) -> BaseFigure:
     )
 
 
-def line_labels(data: Optional[pd.DataFrame | pd.Series] = None, **kwargs) -> BaseFigure:
+def line_labels(data: Optional[pd.DataFrame | pd.Series] = None, **kwargs) -> Figure:
     """Plot a line graph with the default labels."""
     if data is not None:
         kwargs["data_frame"] = data
@@ -78,7 +78,7 @@ class PlotType(Enum):
     BAR = auto()
 
 
-def _plot_boxy_defaults(func: Callable = px.box, **kwargs) -> BaseFigure:
+def _plot_boxy_defaults(func: Callable = px.box, **kwargs) -> Figure:
     return func(
         **{
             "x": "group",
@@ -94,7 +94,7 @@ def _plot_boxy_defaults(func: Callable = px.box, **kwargs) -> BaseFigure:
 
 def plot_boxy(
     data: Optional[pd.DataFrame | pd.Series] = None, plot_type: PlotType = PlotType.BAR, **kwargs
-) -> BaseFigure:
+) -> Figure:
     """Plot a box graph with the default labels."""
     if data is not None:
         kwargs["data_frame"] = data
@@ -210,7 +210,7 @@ def create_by_jobs_df(df: pd.DataFrame) -> pd.DataFrame:
 
 def makespan_by_jobs(
     df: pd.DataFrame, name: str = "", title: str | None = None, create_df: bool = True, **kwargs
-) -> BaseFigure:
+) -> Figure:
     if title is None:
         title = f"Makespan depending on number of jobs and modules of {name}"
     return plot_line_defaults(
@@ -222,7 +222,7 @@ def makespan_by_jobs(
     )
 
 
-def makespan_baseline_by_jobs(df: pd.DataFrame, df_baseline: pd.DataFrame, name: str) -> BaseFigure:
+def makespan_baseline_by_jobs(df: pd.DataFrame, df_baseline: pd.DataFrame, name: str) -> Figure:
     fig = plot_line_defaults(
         data_frame=create_by_jobs_df(baseline_makespan_compare(df, df_baseline)),
         x="jobs",
@@ -240,7 +240,7 @@ def makespan_all(
     title: str = "Makespan of all the problems by benchmark",
     subtitle: str = "",
     **kwargs,
-) -> BaseFigure:
+) -> Figure:
     match plot_type:
         case PlotType.BAR:
             func = px.bar
@@ -280,7 +280,7 @@ def makespan_all_baseline(
     baseline_algorithm: str,
     title="Makespan ratio of all the problems by benchmark",
     **kwargs,
-) -> BaseFigure:
+) -> Figure:
     df_compared = baseline_makespan_compare(*baseline_extract(df, baseline_algorithm))
 
     fig = makespan_all(
@@ -298,7 +298,7 @@ def makespan_all_baseline(
 
 def runtime_by_jobs(
     df: pd.DataFrame, name: str = "", title: str | None = None, **kwargs
-) -> BaseFigure:
+) -> Figure:
     if title is None:
         title = f"Execution time depending on number of jobs and modules of {name}"
     return plot_line_defaults(
@@ -315,7 +315,7 @@ def runtime_all(
     plot_type: PlotType = PlotType.BAR,
     title: str = "Execution time of all the problems by benchmark",
     subtitle: str = "",
-) -> BaseFigure:
+) -> Figure:
     match plot_type:
         case PlotType.BAR:
             func = px.bar
@@ -350,7 +350,7 @@ def runtime_all(
     )
 
 
-def runtime_all_box(df: pd.DataFrame) -> BaseFigure:
+def runtime_all_box(df: pd.DataFrame) -> Figure:
     return runtime_all(df, PlotType.BOX)
 
 
@@ -358,7 +358,7 @@ def runtime_all_baseline(
     df: pd.DataFrame,
     baseline_algorithm: str,
     plot_type: PlotType = PlotType.BAR,
-) -> BaseFigure:
+) -> Figure:
     df_compared = baseline_runtime_compare(*baseline_extract(df, baseline_algorithm))
 
     fig = runtime_all(df_compared, plot_type, subtitle="<br><sup>Higher is better</sup>")
@@ -366,11 +366,11 @@ def runtime_all_baseline(
     return fig
 
 
-def runtime_all_baseline_box(df: pd.DataFrame, baseline_algorithm: str) -> BaseFigure:
+def runtime_all_baseline_box(df: pd.DataFrame, baseline_algorithm: str) -> Figure:
     return runtime_all_baseline(df, baseline_algorithm, PlotType.BOX)
 
 
-def runtime_baseline_by_jobs(df: pd.DataFrame, df_baseline: pd.DataFrame, name: str) -> BaseFigure:
+def runtime_baseline_by_jobs(df: pd.DataFrame, df_baseline: pd.DataFrame, name: str) -> Figure:
     fig = plot_line_defaults(
         data_frame=create_by_jobs_df(baseline_runtime_compare(df, df_baseline)),
         x="jobs",
@@ -383,7 +383,7 @@ def runtime_baseline_by_jobs(df: pd.DataFrame, df_baseline: pd.DataFrame, name: 
     return fig
 
 
-def iterations_by_jobs(df: pd.DataFrame, name: str) -> BaseFigure:
+def iterations_by_jobs(df: pd.DataFrame, name: str) -> Figure:
     return plot_line_defaults(
         data_frame=df,
         x="jobs",
@@ -392,7 +392,7 @@ def iterations_by_jobs(df: pd.DataFrame, name: str) -> BaseFigure:
     )
 
 
-def time_per_iteration_by_jobs(df: pd.DataFrame, name: str) -> BaseFigure:
+def time_per_iteration_by_jobs(df: pd.DataFrame, name: str) -> Figure:
     return plot_line_defaults(
         data_frame=df,
         x="jobs",
@@ -401,7 +401,7 @@ def time_per_iteration_by_jobs(df: pd.DataFrame, name: str) -> BaseFigure:
     )
 
 
-def time_per_job_by_jobs(df: pd.DataFrame, name: str) -> BaseFigure:
+def time_per_job_by_jobs(df: pd.DataFrame, name: str) -> Figure:
     return plot_line_defaults(
         data_frame=df,
         x="jobs",

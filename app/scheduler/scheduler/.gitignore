@@ -75,11 +75,11 @@ Thumbs.db
 *.out
 *.bak
 /include/versioning.h
-experiment_2_22_09_2016
 benchmarks
 build
-2
-experiment_fwd_19-1-2017_push
+/build/
+/build/*
+.DS_Store
 
 # Custom user presets
 CMakeUserPresets.json

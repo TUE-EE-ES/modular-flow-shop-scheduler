@@ -4,7 +4,7 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, NamedTuple, Optional, Literal
+from typing import Iterator, NamedTuple, Optional, Literal, cast
 
 import cbor2
 import pandas as pd
@@ -58,7 +58,9 @@ class _Loader(Task):
             yield _LoaderParameters(idx=i, cbor_file=file)
 
     @staticmethod
-    def processor_function(parameters: _LoaderParameters) -> Optional[_LoaderResult]:
+    def processor_function(parameters: TaskParameters) -> Optional[_LoaderResult]:
+        parameters = cast(_LoaderParameters, parameters)
+
         with open(parameters.cbor_file, mode="rb") as f:
             cbor_data: dict = cbor2.load(f)  # type: ignore # VS Code complains and it is wrong
 
@@ -78,7 +80,8 @@ class _Loader(Task):
                 ),
             )
 
-    def process_output(self, result: _LoaderResult) -> bool:
+    def process_output(self, result: TaskResult) -> bool:
+        result = cast(_LoaderResult, result)
         self.problem_info.append(result)
         return False
 
@@ -114,18 +117,14 @@ def _get_cached_or_to_load(path: Path) -> tuple[list[Path], list[pd.DataFrame], 
             data["jobs"].append(file_info["jobs"])
             data["modules"].append(file_info["modules"])
 
-            # This is an optional value
-            try:
-                deadline = file_info["modules_info"]["0"]["deadlines"]["default"]
-            except KeyError:
-                deadline = float("nan")
-            data["deadline"].append(deadline)
-
             # If the file does not exist, skip it and show a warning
             cbor_file = folder_path / f"{file_id}.cbor"
-            if not cbor_file.exists():
-                print(f"WARNING: {cbor_file} does not exist")
+            cbor_file_new = folder_path / f"{file_id}.fms.cbor"
+            if not cbor_file.exists() and not cbor_file_new.exists():
+                print(f"WARNING: {cbor_file} or {cbor_file_new} does not exist")
                 continue
+            if cbor_file_new.exists():
+                cbor_file = cbor_file_new
             cbor_files.append(cbor_file)
 
     return cbor_files, df_cached, pd.DataFrame.from_dict(data)
@@ -153,9 +152,8 @@ def load_results(path: Path) -> pd.DataFrame:
 
         df_cached.append(df_loaded)
 
-    print("All files loaded!")
+    print("All files have been loaded!")
     return pd.concat(df_cached, axis=0, ignore_index=True)
-
 
 def add_derived_columns(
     df: pd.DataFrame,
@@ -164,6 +162,7 @@ def add_derived_columns(
     gen_subpath: str = "",
     run_subpath: Path | None = None,
     group_source: Literal["original_path", "run_file_path"] = "original_path",
+    extra_main_keys: Optional[list[str]] = None,
 ) -> pd.DataFrame:
     """Generate derived columns from a result data frame.
 
@@ -210,18 +209,22 @@ def add_derived_columns(
     # We drop run_file_path because there's the option of running experiments multiple times
     # and the run_file_path will be different for each run. That is why we assign the groups
     # before dropping the column.
-    main_keys = [
-        "group",
-        "run_file_path",
-        "original_path",
-        "file_id",
-        "modules",
-        "jobs",
-        "modular_algorithm",
-        "algorithm",
-        "time_limit",
-        "deadline",
-    ]
+    main_keys = (
+        [
+            "group",
+            "run_file_path",
+            "original_path",
+            "file_id",
+            "modules",
+            "jobs",
+            "modular_algorithm",
+            "algorithm",
+            "time_limit",
+        ]
+        + []
+        if extra_main_keys is None
+        else extra_main_keys
+    )
     df = df.groupby(main_keys, as_index=False, dropna=False).agg(
         {
             "iterations": "mean",
@@ -237,10 +240,9 @@ def add_derived_columns(
         }
     )
     df.sort_values(main_keys, inplace=True)
-    
+
     # If error is empty and solved is True, set it to 'none'
-    df.loc[((df["error"] == "") & df["solved"]), "error"] = "none"
-    
+    df.loc[df.eval("error == '' and solved"), "error"] = "none"  # type: ignore
 
     # set group as a new level of the multi-level index
-    return df
+    return df.astype({k: "category" for k in ["run_file_path", "original_path"]})

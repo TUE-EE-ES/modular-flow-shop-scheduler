@@ -1,0 +1,23 @@
+<SPInstance type="FORPFSSPSD">
+	<jobs count="2">
+		<operations count="2"/>
+	</jobs>
+	<flowVector>
+		<component job="0" index="0" value="0"/>
+		<component job="0" index="1" value="1"/>
+		<component job="1" index="0" value="0"/>
+		<component job="1" index="1" value="1"/>
+	</flowVector>
+	<processingTimes default="20"/>
+	<sizes default="0"/>
+	<setupTimesIndependent>
+		<s j1="0" op1="0" j2="0" op2="1" value="80"/>
+		<s j1="1" op1="0" j2="1" op2="1" value="80"/>
+	</setupTimesIndependent>
+	<setupTimes default="20">		
+	</setupTimes>
+	<relativeDueDates>
+		<d j1="0" op1="1" j2="0" op2="0" value="120"/>
+		<d j1="1" op1="1" j2="1" op2="0" value="120"/>
+	</relativeDueDates>
+</SPInstance>

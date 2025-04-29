@@ -1,10 +1,11 @@
 #include <gtest/gtest.h>
 
-#include <FORPFSSPSD/xmlParser.h>
+#include <fms/problem/xml_parser.hpp>
 
 #include <array>
 
-using namespace FORPFSSPSD;
+using namespace fms;
+using namespace fms::problem;
 
 // NOLINTBEGIN(*-magic-numbers)
 
@@ -12,7 +13,7 @@ TEST(XML, Simple) {
     FORPFSSPSDXmlParser parser("simple/0.xml");
     ASSERT_EQ(parser.getFileType(), FORPFSSPSDXmlParser::FileType::SHOP);
 
-    std::vector<operation> ops;
+    std::vector<Operation> ops;
     for (JobId j(0); j < JobId(5); ++j) {
         for (OperationId o(0); o < OperationId(4); ++o) {
             ops.emplace_back(j, o);
@@ -59,7 +60,7 @@ TEST(XML, SimpleMultiPlexity) {
 
     const auto instance = parser.createFlowShop();
 
-    const std::array<operation, 7> ops{{{JobId(0), 0},
+    const std::array<Operation, 7> ops{{{JobId(0), 0},
                                         {JobId(0), 1},
                                         {JobId(0), 2},
                                         {JobId(0), 3},
@@ -134,7 +135,7 @@ TEST(XML, ProductionLine) {
         const std::array operationIds{0, 2, 3};
         EXPECT_EQ(j1ops.size(), operationIds.size());
         for (size_t i = 0; i < operationIds.size(); ++i) {
-            EXPECT_EQ(j1ops.at(i), FORPFSSPSD::operation(j1Id, operationIds.at(i)));
+            EXPECT_EQ(j1ops.at(i), problem::Operation(j1Id, operationIds.at(i)));
         }
     }
 
@@ -147,7 +148,7 @@ TEST(XML, ProductionLine) {
         const std::array operationIds{0, 1, 2, 3};
         EXPECT_EQ(j2ops.size(), operationIds.size());
         for (size_t i = 0; i < operationIds.size(); ++i) {
-            EXPECT_EQ(j2ops.at(i), FORPFSSPSD::operation(j2Id, operationIds.at(i)));
+            EXPECT_EQ(j2ops.at(i), problem::Operation(j2Id, operationIds.at(i)));
         }
     }
 }
@@ -158,7 +159,7 @@ TEST(XML, ProductionLineNonTerminating) {
 
     const auto instance = parser.createProductionLine();
 
-    EXPECT_EQ(instance.numberOfModules(), 3);
+    EXPECT_EQ(instance.getNumberOfModules(), 3);
     EXPECT_EQ(instance.getNumberOfJobs(), 3);
     EXPECT_EQ(instance.getNumberOfMachines(), 3);
 

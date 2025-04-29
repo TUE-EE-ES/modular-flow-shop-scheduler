@@ -1,15 +1,15 @@
-#include "fmsscheduler.h"
-#include "utils/commandLine.h"
+#include <fms/scheduler.hpp>
+#include <fms/cli/command_line.hpp>
 
 #include <iostream>
 
 int main(int argc, char *argv[]) {
 
     /* extract the command line arguments */
-    auto args = commandLine::getArgs(argc, argv);
+    auto args = fms::cli::getArgs(argc, argv);
 
     try {
-        FmsScheduler::compute(args);
+        fms::Scheduler::compute(args);
         std::cout << "FMS Scheduler has finished." << std::endl;
     } catch (const ParseException &e) {
         std::cerr << e.what() << std::endl;

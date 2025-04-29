@@ -1,4 +1,12 @@
 # Clangd creates and requries this files in the top directory
 .cache/
 .vscode/
+.idea/
+cmake-build-*/
 compile_commands.json
+/.vs
+*.user
+*.user.*
+
+/build/
+/benchmarks/test_problems/simple/2

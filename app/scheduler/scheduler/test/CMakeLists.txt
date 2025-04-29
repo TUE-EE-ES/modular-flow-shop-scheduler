@@ -32,7 +32,7 @@ endforeach()
 
 CPMAddPackage(
     GITHUB_REPOSITORY google/googletest
-    VERSION 1.13.0
+    VERSION 1.15.2
     OPTIONS "INSTALL_GTEST OFF" "gtest_force_shared_crt"
     EXCLUDE_FROM_ALL
     SYSTEM
@@ -45,8 +45,17 @@ file(GLOB_RECURSE EXEC_TEST_SOURCES CONFIGURE_DEPENDS "*.cc" "*.cpp")
 add_executable(${TARGET_FMS_TEST} ${EXEC_TEST_SOURCES})
 
 target_include_directories(${TARGET_FMS_TEST} PRIVATE "./")
-target_link_libraries(${TARGET_FMS_TEST} common GTest::gtest)
-target_precompile_headers(${TARGET_FMS_TEST} REUSE_FROM common)
+target_link_libraries(${TARGET_FMS_TEST} fms-common GTest::gtest)
+target_precompile_headers(${TARGET_FMS_TEST} REUSE_FROM fms-common)
+
+# IDEs should put the sources in a nice place
+source_group(
+        TREE "${CMAKE_CURRENT_SOURCE_DIR}" 
+        PREFIX "Test Files"
+        FILES ${EXEC_TEST_SOURCES}
+
+)
+
 
 # Configure CTest compatibility with GoogleTest
 include(GoogleTest)

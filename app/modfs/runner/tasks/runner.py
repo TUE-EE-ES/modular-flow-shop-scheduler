@@ -1,13 +1,30 @@
+from enum import StrEnum
 import json
 import os
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from subprocess import STDOUT, run  # noqa: S404
+from subprocess import STDOUT, run
+from typing import cast  # noqa: S404
 
 from slurmer import Task, TaskParameters, TaskResult
 
 from modfs.runner.input import FileId, find_input_files
+
+
+class ValidAlgorithms(StrEnum):
+    BHCS = "bhcs"
+    MDBHCS = "mdbhcs"
+    DD = "dd"
+    SIMPLE = "simple"
+    MNEH_ASAP = "mneh-asap"
+    MNEH_ASAP_BACKTRACK = "mneh-asap-backtrack"
+    MNEH_BHCS_COMBI = "mneh-bhcs-combi"
+    MNEH_BHCS_FLEXIBLE = "mneh-bhcs-flexible"
+    BHCS_MNEH_ASAP = "bhcs-mneh-asap"
+    BHCS_MNEH_BHCS_COMBI = "bhcs-mneh-bhcs-combi"
+    BHCS_MNEH_BHCS_FLEXIBLE = "bhcs-mneh-bhcs-flexible"
+    BHCS_MNEH_ASAP_BACKTRACK = "bhcs-mneh-asap-backtrack"
 
 
 @dataclass
@@ -144,18 +161,44 @@ class Executor(Task):
     @staticmethod
     def args_fms_scheduler(parameters: _ExecutorParameters) -> list[str | Path]:
         """Generate the arguments for the fms-scheduler."""
+
+        extra_args = []
+        if (
+            parameters.algorithm == ValidAlgorithms.BHCS_MNEH_ASAP
+            or parameters.algorithm == ValidAlgorithms.BHCS_MNEH_BHCS_COMBI
+            or parameters.algorithm == ValidAlgorithms.BHCS_MNEH_BHCS_FLEXIBLE
+            or parameters.algorithm == ValidAlgorithms.BHCS_MNEH_ASAP_BACKTRACK
+        ):
+            algorithm = [f"--algorithm={ValidAlgorithms.BHCS.value}"]
+            extra_args += ["--modular-multi-algorithm-behaviour=interleave"]
+
+            if parameters.algorithm == ValidAlgorithms.BHCS_MNEH_ASAP:
+                algorithm += [f"--algorithm={ValidAlgorithms.MNEH_ASAP.value}"]
+            elif parameters.algorithm == ValidAlgorithms.BHCS_MNEH_BHCS_COMBI:
+                algorithm += [f"--algorithm={ValidAlgorithms.MNEH_BHCS_COMBI.value}"]
+            elif parameters.algorithm == ValidAlgorithms.BHCS_MNEH_BHCS_FLEXIBLE:
+                algorithm += [f"--algorithm={ValidAlgorithms.MNEH_BHCS_FLEXIBLE.value}"]
+            elif parameters.algorithm == ValidAlgorithms.BHCS_MNEH_ASAP_BACKTRACK:
+                algorithm += [f"--algorithm={ValidAlgorithms.MNEH_ASAP_BACKTRACK.value}"]
+            else:
+                raise ValueError(f"Invalid algorithm {parameters.algorithm}")
+        else:
+            algorithm = [f"--algorithm={parameters.algorithm}"]
+
         return [
             parameters.scheduler,
             "--input",
             str(parameters.input_file),
             "--output",
             f"{parameters.file_id}",
-            f"--algorithm={parameters.algorithm}",
+            *algorithm,
             f"--modular-algorithm={parameters.mod_algorithm}",
             "--output-format=cbor",
-            f"--time-out={parameters.time_out*1000}" if parameters.time_out > 0 else "",
+            # So far, only MNEH and DD use this parameter. Since we are not using DD we hardcode it.
+            "--max-iterations=5",
+            f"--modular-time-out={parameters.time_out*1000}" if parameters.time_out > 0 else "",
             "-vvvvv" if parameters.verbose else "-vv",
-        ]
+        ] + extra_args
 
     @staticmethod
     def args_constraint(parameters: _ExecutorParameters) -> list[str | Path]:
@@ -168,8 +211,9 @@ class Executor(Task):
         ]
 
     @staticmethod
-    def processor_function(parameters: _ExecutorParameters) -> _ExecutorResult:
+    def processor_function(parameters: TaskParameters) -> _ExecutorResult:
         """Process a single file."""
+        parameters = cast(_ExecutorParameters, parameters)
         log_out_file = parameters.out_dir / f"{parameters.file_id}.out.log"
 
         if log_out_file.exists() and parameters.skip_exists:

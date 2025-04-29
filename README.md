@@ -1,7 +1,7 @@
 # Modular scheduling experiments
 
 This repository contains all the code to generate, run and analyse the experiments for the paper
-"Modular Scheduling of Tightly Coupled Production Lines". 
+"Modular Scheduling of Tightly Coupled Production Lines".
 
 ## Table of contents
 
@@ -25,7 +25,7 @@ This repository contains all the code to generate, run and analyse the experimen
 
 ## Project structure
 
-You can use Docker to run the experiments (see #docker-implementation-recommended) or run them locally (see #local-implementation). The project is structured as follows. 
+You can use Docker to run the experiments (see #docker-implementation-recommended) or run them locally (see #local-implementation). The project is structured as follows.
 
 - `app/`: Contains the code to generate, run and analyse the experiments.
 - `config/`: Contains the configuration files to build the docker images.
@@ -36,15 +36,15 @@ Inside the `app/` directory you can find the following:
 - `scheduler/`: Contains the MAS implementation in C++.
 - `app.jl`: The main julia script to generate the input problems. You can find the input problems in `inputs/`. Run `julia --project=. ./app.jl gen --help` to see the available options.
 - `modfs/`: Contains the python package to run the experiments. You can run the experiments with `poetry run modfs run --help`.
-- `notebooks/papers/modular-scheduling/paper.ipynb`: Contains the jupyter notebook to analyse the results. 
+- `notebooks/papers/modular-scheduling/paper.ipynb`: Contains the jupyter notebook to analyse the results.
 - `models/`: Contains the CP model to solve the production line problem.
-
 
 ## Docker implementation (recommended)
 
 For convenience, we've provided two docker images that can be used to recreate the experiments:
+
 - The single-node docker image creates a docker image that installs the dependencies, runs and
-  analyses the experiments in a single node. However, because the analysis is not parallelized 
+  analyses the experiments in a single node. However, because the analysis is not parallelized
   it can take a long time to execute.
 - The multi-node-enabled docker image creates a docker image with the dependencies to run the
   experiments in a multi-node environment. The image is built without running the experiments and
@@ -53,6 +53,7 @@ For convenience, we've provided two docker images that can be used to recreate t
 ### Requisites
 
 To build the docker images you need the following:
+
 - Docker installed in your machine. You can download it from the [official website](https://www.docker.com/get-started).
 - The CP Optimizer installation file (`cplex_studio2211.linux_x86_64.bin`). You can download the file from the IBM website. You need to create an account to download the file and have a valid license. Place the file in the `extra` directory: `extra/cplex_studio2211.linux_x86_64.bin`.
 
@@ -79,7 +80,7 @@ docker build . -t modular-scheduling:multi-node -f ./config/deploys/modular-sche
 ```
 
 To run the experiments you need to pass the `SLURM_ARRAY_TASK_ID` and `SLURM_ARRAY_TASK_MAX` as
-environment variables. You don't need SLURM to use them, they are simply read by the python script. `SLURM_ARRAY_TASK_ID` starts at 1 and ends at `SLURM_ARRAY_TASK_MAX`. You also need to mount the `/app/data/run/` directory. 
+environment variables. You don't need SLURM to use them, they are simply read by the python script. `SLURM_ARRAY_TASK_ID` starts at 1 and ends at `SLURM_ARRAY_TASK_MAX`. You also need to mount the `/app/data/run/` directory.
 
 There are two types of experiments, the _generic_ and the _computational_ experiments. The generic are run with a time limit of 600 seconds and the computational both with 600 and 3600 seconds for the MAS and only 3600 seconds for the CP.
 
@@ -150,7 +151,7 @@ You can also run the experiments locally without requiring docker to do so, you'
 1. Install all the requirements
 2. Generate the input problems
 3. Compile the MAS implementation
-4. Install 
+4. Install
 5. Run the experiments
 6. Analyse the results
 
@@ -165,10 +166,9 @@ In the following steps we use `/` to indicate the project root directory.
 - Poetry 1.1.8 or higher
 - CP Optimizer by IBM version (we used version 22.1.1.0)
 
-
 ### Generating input problems
 
-The input problems are generated from the YAML files located in  `/app/inputs/paper` using julia. 
+The input problems are generated from the YAML files located in  `/app/inputs/paper` using julia.
 To generate them you need julia in your path, go to the `/app` folder and run the following:
 
 ```bash
@@ -211,17 +211,17 @@ poetry install --no-root
 ### Running the experiments
 
 The experiments are run in parallel by a python package called `modfs`
-installed by poetry in its python environment. To install the python environment go to the 
+installed by poetry in its python environment. To install the python environment go to the
 `/app` directory and run the following:
 
 ```bash
 poetry install
 ```
 
-To run the experiments you need the scheduler and the CP optimizer by IBM. The scheduler is 
+To run the experiments you need the scheduler and the CP optimizer by IBM. The scheduler is
 located in the `app/scheduler` directory. After building the scheduler, the python script expects
 to find the scheduler in `app/data/bin/scheduler`. You can create a symlink. The CP optimizer is
-expected to be in the `PATH`. However, the python script expects to find a file 
+expected to be in the `PATH`. However, the python script expects to find a file
 `app/data/bin/cp-solver` that runs the python script in `app/models/src/cpModelProductionLine.py`.
 We've provided an example file in `config/cp-solver.sh` that you can use as a template. For
 most use cases just renaming it to `cp-solver` and making it executable should be enough.
@@ -239,8 +239,8 @@ poetry run modfs run --algorithm bhcs simple --modular-algorithm broadcast cockt
 
 ### Analysing the results
 
-The results are analysed using a python jupyter notebook. The 
-jupyter dependencies are already installed together with the `modfs` package. To analyse the 
+The results are analysed using a python jupyter notebook. The
+jupyter dependencies are already installed together with the `modfs` package. To analyse the
 results open the jupyter notebook `app/notebooks/papers/modular-scheduling.ipynb`. Make sure
 that the working directory is the same as the file.
 

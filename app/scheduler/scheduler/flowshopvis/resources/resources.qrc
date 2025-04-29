@@ -1,9 +1,12 @@
 <RCC>
-  <qresource prefix="/">
-    <file>fonts/font-awesome/solid/arrow-down-up-across-line.svg</file>
-    <file>fonts/font-awesome/LICENSE.txt</file>
-    <file>fonts/font-awesome/solid/folder-open.svg</file>
-    <file>fonts/font-awesome/solid/chevron-left.svg</file>
-    <file>fonts/font-awesome/solid/chevron-right.svg</file>
-  </qresource>
+    <qresource prefix="/">
+        <file>fonts/font-awesome/LICENSE.txt</file>
+        <file>fonts/font-awesome/solid/arrow-down-up-across-line.svg</file>
+        <file>fonts/font-awesome/solid/chevron-left.svg</file>
+        <file>fonts/font-awesome/solid/chevron-right.svg</file>
+        <file>fonts/font-awesome/solid/code-branch.svg</file>
+        <file>fonts/font-awesome/solid/folder-open.svg</file>
+        <file>logo.png</file>
+        <file>favicon.ico</file>
+    </qresource>
 </RCC>

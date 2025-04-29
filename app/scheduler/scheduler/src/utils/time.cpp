@@ -1,6 +1,6 @@
-#include "pch/containers.hpp"
+#include "fms/pch/containers.hpp"
 
-#include "utils/time.h"
+#include "fms/utils/time.hpp"
 
 #include <chrono>
 
@@ -13,7 +13,7 @@ static constexpr uint64_t kMillisecondsPerSecond = 1000;
 
 static constexpr uint64_t k100NanosecondsPerMillisecond = 10000;
 
-std::chrono::milliseconds FMS::getCpuTime() {
+std::chrono::milliseconds fms::utils::time::getCpuTime() {
     FILETIME creationTime;
     FILETIME exitTime;
     FILETIME kernelTime;
@@ -33,8 +33,8 @@ std::chrono::milliseconds FMS::getCpuTime() {
 }
 #else
 #include <ctime>
-std::chrono::milliseconds FMS::getCpuTime() {
-    struct timespec ts;
+std::chrono::milliseconds fms::utils::time::getCpuTime() {
+    struct timespec ts{};
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) != 0) {
         return std::chrono::milliseconds(0);
     }

@@ -1,9 +1,11 @@
 #include <gtest/gtest.h>
 
-#include <thread>
-#include <utils/time.h>
+#include <fms/utils/time.hpp>
 
-using namespace FMS;
+#include <thread>
+
+using namespace fms;
+using namespace fms::utils::time;
 using namespace std::chrono_literals;
 
 TEST(Timers, oneSecond) {

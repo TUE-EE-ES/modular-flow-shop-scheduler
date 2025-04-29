@@ -1,4 +1,4 @@
-/*
-
+*
 !.gitignore
+!backup/README.md
 !bin/cp-solver
