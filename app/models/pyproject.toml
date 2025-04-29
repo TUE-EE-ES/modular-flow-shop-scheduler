@@ -9,10 +9,10 @@ readme = "README.md"
 python = "^3.10"
 numpy = "^1.25.0"
 pandas = "^2.0.2"
-gurobipy = "^10.0.2"
 docplex = "^2.25.236"
 cbor2 = "^5.4.6"
 networkx = "^3.1"
+gurobipy = "^12.0.1"
 
 
 [tool.poetry.group.dev.dependencies]

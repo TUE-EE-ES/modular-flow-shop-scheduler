@@ -14,6 +14,7 @@ This repository contains all the code to generate, run and analyse the experimen
     - [Multi-node-enabled docker image](#multi-node-enabled-docker-image)
       - [Generic experiments](#generic-experiments)
       - [Computational experiments](#computational-experiments)
+      - [Experiments reusing schedulers](#experiments-reusing-schedulers)
       - [Analysis of the results](#analysis-of-the-results)
   - [Local implementation](#local-implementation)
     - [Requirements](#requirements)
@@ -33,7 +34,7 @@ You can use Docker to run the experiments (see #docker-implementation-recommende
 
 Inside the `app/` directory you can find the following:
 
-- `scheduler/`: Contains the MAS implementation in C++.
+- `scheduler/`: Contains the MAS implementation in C++ as well as the local schedulers implementations.
 - `app.jl`: The main julia script to generate the input problems. You can find the input problems in `inputs/`. Run `julia --project=. ./app.jl gen --help` to see the available options.
 - `modfs/`: Contains the python package to run the experiments. You can run the experiments with `poetry run modfs run --help`.
 - `notebooks/papers/modular-scheduling/paper.ipynb`: Contains the jupyter notebook to analyse the results.
@@ -43,10 +44,10 @@ Inside the `app/` directory you can find the following:
 
 For convenience, we've provided two docker images that can be used to recreate the experiments:
 
-- The single-node docker image creates a docker image that installs the dependencies, runs and
+- The single-node docker image: creates a docker image that installs the dependencies, runs and
   analyses the experiments in a single node. However, because the analysis is not parallelized
   it can take a long time to execute.
-- The multi-node-enabled docker image creates a docker image with the dependencies to run the
+- The multi-node-enabled docker: image creates a docker image with the dependencies to run the
   experiments in a multi-node environment. The image is built without running the experiments and
   it is expected to be run in a multi-node environment.
 
@@ -82,7 +83,7 @@ docker build . -t modular-scheduling:multi-node -f ./config/deploys/modular-sche
 To run the experiments you need to pass the `SLURM_ARRAY_TASK_ID` and `SLURM_ARRAY_TASK_MAX` as
 environment variables. You don't need SLURM to use them, they are simply read by the python script. `SLURM_ARRAY_TASK_ID` starts at 1 and ends at `SLURM_ARRAY_TASK_MAX`. You also need to mount the `/app/data/run/` directory.
 
-There are two types of experiments, the _generic_ and the _computational_ experiments. The generic are run with a time limit of 600 seconds and the computational both with 600 and 3600 seconds for the MAS and only 3600 seconds for the CP.
+There are three types of experiments, the _generic_, the _computational_ and the _reusing schedulers_ experiments. The generic are run with a time limit of 600 seconds, the computational both with 600 and 3600 seconds for the MAS and only 3600 seconds for the CP and the reusing with a time limit of 3600 seconds.
 
 #### Generic experiments
 
@@ -129,6 +130,30 @@ docker run -v <path_to_shared_data_folder>/run:/app/data/run/ \
   poetry run modfs run --algorithm bhcs simple --modular-algorithm broadcast cocktail constraint \
   --time-limit 3600 --in /app/data/gen/computational --out /app/data/run/computational
   
+```
+
+#### Experiments reusing schedulers
+
+The experiments reusing schedulers reuse the same input files as the ones for the computational experiments. We only change the scheduler used by each module.
+
+```bash
+# Needs to run in a single node. Creates the folder structure used by all nodes
+docker run -v <path_to_shared_data_folder>/run:/app/data/run/ modular-scheduling:multi-node \
+  poetry run modfs run --make-dirs-only \
+  --algorithm mneh-asap-backtrack bhcs-mneh-asap-backtrack \
+  --modular-algorithm broadcast cocktail \
+  --time-limit 3600 --in /app/data/gen/computational --out /app/data/run/computational
+
+
+# Run in all nodes. Starts the analysis in parallel in all nodes. 
+# If you don't have slurm, just make sure that the environment variables are set correctly.
+docker run -v <path_to_shared_data_folder>/run:/app/data/run/ modular-scheduling:multi-node \
+  poetry run modfs run \
+  -e SLURM_ARRAY_TASK_MAX=<number_of_nodes> \
+  -e SLURM_ARRAY_TASK_ID=<id_of_node> modular-scheduling:multi-node\
+  --algorithm mneh-asap-backtrack bhcs-mneh-asap-backtrack \
+  --modular-algorithm broadcast cocktail \
+  --time-limit 3600 --in /app/data/gen/computational --out /app/data/run/computational
 ```
 
 #### Analysis of the results
@@ -235,13 +260,16 @@ poetry run modfs run --algorithm bhcs simple --modular-algorithm broadcast cockt
 # Computational experiments
 poetry run modfs run --algorithm bhcs simple --modular-algorithm broadcast cocktail --time-out 600 --in data/gen/computational --out data/run/computational
 poetry run modfs run --algorithm bhcs simple --modular-algorithm broadcast cocktail constraint --time-out 3600 --in data/gen/computational --out data/run/computational
+
+# Experiments reusing schedulers
+poetry run modfs run --algorithm mneh-asap-backtrack bhcs-mneh-asap-backtrack --modular-algorithm broadcast cocktail --time-out 3600 --in data/gen/computational --out data/run/computational
 ```
 
 ### Analysing the results
 
 The results are analysed using a python jupyter notebook. The
 jupyter dependencies are already installed together with the `modfs` package. To analyse the
-results open the jupyter notebook `app/notebooks/papers/modular-scheduling.ipynb`. Make sure
+results open the jupyter notebook `app/notebooks/papers/paper.ipynb`. Make sure
 that the working directory is the same as the file.
 
 The figures from the paper are generated in `/app/data/figs/paper/modular-scheduling`.
