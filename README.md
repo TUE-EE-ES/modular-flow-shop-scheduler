@@ -1,6 +1,6 @@
 # Modular scheduling experiments
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15306151.svg)](https://doi.org/10.5281/zenodo.15306151)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15306151.svg)](https://doi.org/10.5281/zenodo.15306151) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 This repository contains all the code to generate, run and analyse the experiments for the paper
 "Modular Scheduling of Tightly Coupled Production Lines".
