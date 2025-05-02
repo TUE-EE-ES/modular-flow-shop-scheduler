@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2024 Technical University of Eindhoven, Electronic Systems Group
+Copyright (c) 2025 Eindhoven University of Technology, Electronic Systems Group
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
