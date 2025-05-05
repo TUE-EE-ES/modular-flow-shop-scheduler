@@ -20,7 +20,7 @@ RUN /opt/scripts/install-poetry.sh
 
 # Install cpoptimizer. The file must be located in the "extra" folder. This file is not provided as you require your 
 # own license to download it from the IBM website.
-COPY ./extra/cplex_studio2211.linux_x86_64.bin /
+COPY ./extra/cplex_studio2212.linux_x86_64.bin /
 RUN /opt/scripts/install-cplex.sh
 
 COPY ./app /app

@@ -58,7 +58,7 @@ For convenience, we've provided two docker images that can be used to recreate t
 To build the docker images you need the following:
 
 - Docker installed in your machine. You can download it from the [official website](https://www.docker.com/get-started).
-- The CP Optimizer installation file (`cplex_studio2211.linux_x86_64.bin`). You can download the file from the IBM website. You need to create an account to download the file and have a valid license. Place the file in the `extra` directory: `extra/cplex_studio2211.linux_x86_64.bin`.
+- The CP Optimizer installation file (`cplex_studio2212.linux_x86_64.bin`). You can download the file from the IBM website. You need to create an account to download the file and have a valid license. Place the file in the `extra` directory: `extra/cplex_studio2212.linux_x86_64.bin`.
 
 ### Single-node docker image
 
