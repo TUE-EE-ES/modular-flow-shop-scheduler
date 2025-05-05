@@ -1,0 +1,2 @@
+# Force LF line endings for scripts regardless of platform
+config/scripts/** text eol=lf
